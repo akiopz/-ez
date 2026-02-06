@@ -85,11 +85,16 @@ local success, err = pcall(function()
         "CheatDetection", "KickPlayer", "CrashClient"
     }
 
+    local function IsLocalCharacter(obj)
+        if not lp.Character then return false end
+        return obj == lp.Character or obj:IsDescendantOf(lp.Character)
+    end
+
     mt.__index = env.newcclosure(function(t, k)
         if not env.checkcaller() then
-            if t:IsA("Humanoid") and SpoofedProperties[k] then
+            if t:IsA("Humanoid") and IsLocalCharacter(t) and SpoofedProperties[k] then
                 return SpoofedProperties[k]
-            elseif t:IsA("BasePart") and k == "CFrame" and SpoofedProperties.CFrame ~= CFrame_new(0,0,0) then
+            elseif t:IsA("BasePart") and k == "CFrame" and IsLocalCharacter(t) and SpoofedProperties.CFrame ~= CFrame_new(0,0,0) then
                 return SpoofedProperties.CFrame
             elseif (t == CoreGui or t == lp:FindFirstChild("PlayerGui")) and (k == GUIName or k == _G.CatLoaderName) then
                 return nil
@@ -100,10 +105,10 @@ local success, err = pcall(function()
 
     mt.__newindex = env.newcclosure(function(t, k, v)
         if not env.checkcaller() then
-            if t:IsA("Humanoid") and SpoofedProperties[k] then
+            if t:IsA("Humanoid") and IsLocalCharacter(t) and SpoofedProperties[k] then
                 SpoofedProperties[k] = v
                 return
-            elseif t:IsA("BasePart") and k == "CFrame" then
+            elseif t:IsA("BasePart") and k == "CFrame" and IsLocalCharacter(t) then
                 SpoofedProperties.CFrame = v
             end
         end
