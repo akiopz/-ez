@@ -1,21 +1,56 @@
 -- Halol (V4.0) 核心加載器 (完整模組化版本)
 ---@diagnostic disable: undefined-global, deprecated, undefined-field
+print("Halol V4.0 開始加載...")
+
+local function Notify(title, text, duration)
+    pcall(function()
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = title,
+            Text = text,
+            Duration = duration or 5
+        })
+    end)
+end
+
 local success, err = pcall(function()
     -- === 基礎配置 ===
     local BASE_URL = "https://raw.githubusercontent.com/akiopz/Roblox-Scripts/main/"
+    
     local function GetScript(path)
-        return loadstring(game:HttpGet(BASE_URL .. path))()
+        print("正在獲取模組: " .. path)
+        local success, content = pcall(function()
+            return game:HttpGet(BASE_URL .. path)
+        end)
+        
+        if not success or not content or content == "" then
+            error("無法獲取檔案: " .. path .. " (請檢查網路或 URL)")
+        end
+        
+        local func, parseErr = loadstring(content)
+        if not func then
+            error("語法錯誤 (" .. path .. "): " .. tostring(parseErr))
+        end
+        
+        local execSuccess, result = pcall(func)
+        if not execSuccess then
+            error("執行錯誤 (" .. path .. "): " .. tostring(result))
+        end
+        
+        return result
     end
 
+    Notify("Halol V4.0", "正在初始化核心模組...", 3)
+
     -- 1. 加載核心模組
-    local envModule = GetScript("src/core/env.lua")
-    local env = envModule.GetEnvironment()
+    local env = GetScript("src/core/env.lua")
     
     local guiModule = GetScript("src/core/gui.lua")
     local mainGui = guiModule.CreateMainGui()
     
     local utilsModule = GetScript("src/core/utils.lua")
     local GuiUtils = utilsModule.Init(mainGui)
+
+    Notify("Halol V4.0", "核心加載成功，正在載入功能...", 3)
 
     -- 2. 加載功能與 AI 模組
     local functionsModule = GetScript("src/modules/functions.lua")
@@ -25,16 +60,19 @@ local success, err = pcall(function()
     local AI = aiModule.Init(CatFunctions)
     
     local visualsModule = GetScript("src/modules/visuals.lua")
-    local Visuals = visualsModule.Init(mainGui, nil)
+    local Visuals = visualsModule.Init(mainGui, Notify)
     
     local blatantModule = GetScript("src/modules/blatant.lua")
-    local Blatant = blatantModule.Init(mainGui, nil)
+    local Blatant = blatantModule.Init(mainGui, Notify)
 
     -- 3. 初始化分頁
-    GuiUtils.CreateTab("自動核心")
+    local firstTab = GuiUtils.CreateTab("自動核心")
     GuiUtils.CreateTab("視覺功能")
     GuiUtils.CreateTab("暴力功能")
     GuiUtils.CreateTab("BEDWARS 專區")
+    
+    -- 默認選中第一個分頁
+    if firstTab then firstTab.Switch() end
 
     -- 4. 註冊功能按鈕
     -- 自動核心
@@ -89,8 +127,10 @@ local success, err = pcall(function()
     end)
 
     print("Halol V4.0 模組化版本初始化完成！")
+    Notify("Halol V4.0", "初始化完成！按選單按鈕開始使用。", 5)
 end)
 
 if not success then
     warn("Halol 載入失敗: " .. tostring(err))
+    Notify("Halol 載入失敗", tostring(err), 10)
 end

@@ -57,7 +57,11 @@ function GuiUtils.Init(Gui)
         
         Gui.SafeConnect(TabButton.MouseButton1Click, Switch)
         
-        Tabs[name] = {Button = TabButton, Page = Page, List = PageList}
+        Gui.SafeConnect(PageList:GetPropertyChangedSignal("AbsoluteContentSize"), function()
+            Page.CanvasSize = UDim2_new(0, 0, 0, PageList.AbsoluteContentSize.Y + 10)
+        end)
+        
+        Tabs[name] = {Button = TabButton, Page = Page, List = PageList, Switch = Switch}
         return Tabs[name]
     end
 
