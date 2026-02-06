@@ -1027,41 +1027,81 @@ local success, err = pcall(function()
         end)
     end)
 
-    AddScript("暴力功能", "殺戮光環 (Kill Aura)", "自動攻擊 20 格範圍內的所有玩家 (Bedwars 優化版)。", function()
+    AddScript("暴力功能", "殺戮光環 (Kill Aura)", "自動攻擊 20 格範圍內的所有玩家 (優先攻擊血量最低者)。", function()
         _G.KillAura = not _G.KillAura
         Notify("殺戮光環", _G.KillAura and "已啟動" or "已關閉", _G.KillAura and "Success" or "Info")
         
         task.spawn(function()
-            while _G.KillAura and task_wait(0.1) do
+            while _G.KillAura and task_wait(0.05) do -- 提高頻率
                 local loop_success, loop_err = pcall(function()
                     local char = lp.Character
                     local hrp = char and char:FindFirstChild("HumanoidRootPart")
-                    if hrp then
-                        for _, player in ipairs(Players:GetPlayers()) do
-                            if player ~= lp and player.Team ~= lp.Team and player.Character then
-                                local ehum = player.Character:FindFirstChildOfClass("Humanoid")
-                                local ehrp = player.Character:FindFirstChild("HumanoidRootPart")
-                                if ehum and ehum.Health > 0 and ehrp then
-                                    local dist = (hrp.Position - ehrp.Position).Magnitude
-                                    if dist < 20 then
-                                        local remote = ReplicatedStorage:FindFirstChild("SwordHit", true) or 
-                                                       ReplicatedStorage:FindFirstChild("CombatEvents", true)
-                                        
-                                        if remote and remote:IsA("RemoteEvent") then
-                                            remote:FireServer({["entity"] = player.Character})
-                                        else
-                                            local tool = char:FindFirstChildOfClass("Tool")
-                                            if tool then tool:Activate() end
-                                        end
-                                    end
+                    if not hrp then return end
+                    
+                    local targets = {}
+                    for _, player in ipairs(Players:GetPlayers()) do
+                        if player ~= lp and player.Team ~= lp.Team and player.Character then
+                            local ehum = player.Character:FindFirstChildOfClass("Humanoid")
+                            local ehrp = player.Character:FindFirstChild("HumanoidRootPart")
+                            if ehum and ehum.Health > 0 and ehrp then
+                                local dist = (hrp.Position - ehrp.Position).Magnitude
+                                if dist < 20 then
+                                    table.insert(targets, {player = player, health = ehum.Health})
                                 end
                             end
+                        end
+                    end
+                    
+                    -- 優先攻擊血量最低的玩家
+                    table.sort(targets, function(a, b) return a.health < b.health end)
+                    
+                    if #targets > 0 then
+                        local target = targets[1].player
+                        local remote = ReplicatedStorage:FindFirstChild("SwordHit", true) or 
+                                       ReplicatedStorage:FindFirstChild("CombatEvents", true)
+                        
+                        if remote and remote:IsA("RemoteEvent") then
+                            remote:FireServer({["entity"] = target.Character})
+                        else
+                            local tool = char:FindFirstChildOfClass("Tool")
+                            if tool then tool:Activate() end
                         end
                     end
                 end)
                 if not loop_success then
                     warn("KillAura Loop Error: " .. tostring(loop_err))
-                    task_wait(1) -- 出錯時稍微等待，防止 CPU 佔用過高
+                    task_wait(1)
+                end
+            end
+        end)
+    end)
+
+    AddScript("暴力功能", "無限跳躍 (Infinite Jump)", "讓你在空中可以無限次跳躍。", function()
+        _G.InfiniteJump = not _G.InfiniteJump
+        Notify("無限跳躍", _G.InfiniteJump and "已啟動" or "已關閉", _G.InfiniteJump and "Success" or "Info")
+        
+        if _G.InfiniteJumpConn then _G.InfiniteJumpConn:Disconnect() end
+        if _G.InfiniteJump then
+            _G.InfiniteJumpConn = UserInputService.JumpRequest:Connect(function()
+                local char = lp.Character
+                local hum = char and char:FindFirstChildOfClass("Humanoid")
+                if hum then
+                    hum:ChangeState(Enum.HumanoidStateType.Jumping)
+                end
+            end)
+        end
+    end)
+
+    AddScript("暴力功能", "無掉落傷害 (No Fall)", "防止摔落造成的傷害 (通過偽造落地狀態)。", function()
+        _G.NoFall = not _G.NoFall
+        Notify("無掉落傷害", _G.NoFall and "已啟動" or "已關閉", _G.NoFall and "Success" or "Info")
+        
+        task.spawn(function()
+            while _G.NoFall and task_wait(0.1) do
+                local remote = ReplicatedStorage:FindFirstChild("FallDamage", true)
+                if remote and remote:IsA("RemoteEvent") then
+                    -- 發送 0 傷害或偽造落地數據包
+                    remote:FireServer(0)
                 end
             end
         end)
@@ -1285,14 +1325,29 @@ local success, err = pcall(function()
 
             -- 檢測是否被攔截
             local function IsIntercepted()
-                -- 嘗試檢測常見的遠端事件鉤子或攔截器
-                if env.getrawmetatable then
-                    local mt = env.getrawmetatable(game)
-                    local namecall = mt.__namecall
-                    -- 如果 namecall 被修改且不是我們的，可能被攔截
-                    -- 這裡僅作簡單啟發式判斷
-                end
-                return false -- 默認繼續，如果環境不支援檢測
+                -- 檢測常見的遠端事件鉤子或攔截器
+                local success, result = pcall(function()
+                    if env.getrawmetatable then
+                        local mt = env.getrawmetatable(game)
+                        local nc = mt.__namecall
+                        -- 如果 __namecall 被修改且不是我們的核心 Hook，則可能被攔截
+                        -- 我們在腳本開頭已經定義了 old_namecall，如果這裡的 nc 與我們定義的不符，可能被二次 Hook
+                        if nc and tostring(nc):find("hook") or tostring(nc):find("proxy") then
+                            return true
+                        end
+                    end
+                    
+                    -- 隨機抽樣檢查遠端事件是否被改寫
+                    for i = 1, 3 do
+                        local r = remotes[math_random(1, #remotes)]
+                        if r and (r.FireServer ~= Instance.new("RemoteEvent").FireServer) then
+                            -- 如果 FireServer 方法被改寫（不是原始的），則被攔截
+                            return true
+                        end
+                    end
+                    return false
+                end)
+                return success and result or false
             end
 
             while _G.ServerCrash do
@@ -1421,6 +1476,31 @@ local success, err = pcall(function()
                     end
                 end
                 task_wait(0.2)
+            end
+        end)
+    end)
+
+    AddScript("自動化功能", "快速破床 (Fast Break)", "移除挖掘延遲，讓你瞬間破壞方塊與床位。", function()
+        _G.FastBreak = not _G.FastBreak
+        Notify("快速破床", _G.FastBreak and "已啟動" or "已關閉", _G.FastBreak and "Success" or "Info")
+        
+        task.spawn(function()
+            while _G.FastBreak and task_wait() do
+                local char = lp.Character
+                local tool = char and char:FindFirstChildOfClass("Tool")
+                if tool and tool:FindFirstChild("Handle") then
+                    -- 某些遊戲中，可以通過修改屬性或發送多個數據包來實現
+                    -- 這裡模擬高頻挖掘請求
+                    local remote = ReplicatedStorage:FindFirstChild("DamageBlock", true) or 
+                                   ReplicatedStorage:FindFirstChild("HitBlock", true)
+                    if remote then
+                        -- 獲取鼠標指向的目標
+                        local target = lp:GetMouse().Target
+                        if target and target:IsA("BasePart") then
+                            remote:FireServer({["position"] = target.Position, ["block"] = target.Name})
+                        end
+                    end
+                end
             end
         end)
     end)
