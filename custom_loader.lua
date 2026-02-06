@@ -16,8 +16,10 @@ local success, err = pcall(function()
     local Color3_fromRGB = Color3.fromRGB
     local UDim2_new = UDim2.new
     local Vector3_new = Vector3.new
+    local CFrame_new = CFrame.new
     local task_spawn = task.spawn
     local task_wait = task.wait
+    local math_random = math.random
 
     -- === 反偵測核心模組 ===
     local function GenerateRandomString(length)
@@ -506,20 +508,21 @@ local success, err = pcall(function()
     -- === 視覺功能內容 ===
     AddScript("視覺功能", "玩家透視 (Highlight)", "最穩定的透視，顯示玩家輪廓。", function()
         local function ApplyESP(char)
-            if not char:FindFirstChild(ESPTag) then
-                ApplyProperties(Instance.new("Highlight"), {
-                    Name = ESPTag,
-                    Parent = char,
-                    FillTransparency = 0.5,
-                    OutlineColor = Color3_fromRGB(255, 0, 0)
-                })
-            end
+            if not char or char:FindFirstChild(ESPTag) then return end
+            ApplyProperties(Instance.new("Highlight"), {
+                Name = ESPTag,
+                Parent = char,
+                FillTransparency = 0.5,
+                OutlineColor = Color3_fromRGB(255, 0, 0)
+            })
         end
-        for _, player in pairs(Players:GetPlayers()) do
+
+        for _, player in ipairs(Players:GetPlayers()) do
             if player ~= lp and player.Character then
                 ApplyESP(player.Character)
             end
         end
+
         SafeConnect(Players.PlayerAdded, function(p)
             SafeConnect(p.CharacterAdded, ApplyESP)
         end)
@@ -573,10 +576,10 @@ local success, err = pcall(function()
                 })
                 
                 local function UpdateHealth()
-                    if char and char:FindFirstChild("Humanoid") then
-                        local hum = char.Humanoid
-                        healthLabel.Text = math.floor(hum.Health) .. " / " .. math.floor(hum.MaxHealth)
-                        healthLabel.TextColor3 = Color3_fromHSV(math.clamp(hum.Health / hum.MaxHealth, 0, 1) * 0.3, 1, 1)
+                    local hum = char:FindFirstChildOfClass("Humanoid")
+                    if hum then
+                        healthLabel.Text = math_floor(hum.Health) .. " / " .. math_floor(hum.MaxHealth)
+                        healthLabel.TextColor3 = Color3_fromHSV(math_clamp(hum.Health / hum.MaxHealth, 0, 1) * 0.3, 1, 1)
                     end
                 end
                 
@@ -597,7 +600,7 @@ local success, err = pcall(function()
             if player.Character then OnCharacterAdded(player.Character) end
             SafeConnect(player.CharacterAdded, OnCharacterAdded)
         end
-        for _, p in pairs(Players:GetPlayers()) do
+        for _, p in ipairs(Players:GetPlayers()) do
             CreateESP(p)
         end
         SafeConnect(Players.PlayerAdded, CreateESP)
@@ -606,17 +609,16 @@ local success, err = pcall(function()
 
     AddScript("視覺功能", "掉落物透視 (Item ESP)", "顯示地圖上所有掉落資源 (如鐵、金) 的位置。", function()
         local function TagItem(item)
-            if not item:FindFirstChild(ESPTag) then
-                ApplyProperties(Instance.new("Highlight"), {
-                    Name = ESPTag,
-                    Parent = item,
-                    FillColor = Color3_fromRGB(200, 200, 200),
-                    OutlineColor = Color3_fromRGB(255, 255, 255)
-                })
-            end
+            if not item or item:FindFirstChild(ESPTag) then return end
+            ApplyProperties(Instance.new("Highlight"), {
+                Name = ESPTag,
+                Parent = item,
+                FillColor = Color3_fromRGB(200, 200, 200),
+                OutlineColor = Color3_fromRGB(255, 255, 255)
+            })
         end
         
-        for _, v in pairs(workspace:GetDescendants()) do
+        for _, v in ipairs(workspace:GetDescendants()) do
             if v:IsA("BasePart") and (v.Name:lower():find("item") or v.Name:lower():find("drop")) then
                 TagItem(v)
             end
@@ -626,17 +628,16 @@ local success, err = pcall(function()
 
     AddScript("視覺功能", "箱子透視 (Chest ESP)", "顯示地圖上所有箱子的位置。", function()
         local function TagChest(chest)
-            if not chest:FindFirstChild(ESPTag) then
-                ApplyProperties(Instance.new("Highlight"), {
-                    Name = ESPTag,
-                    Parent = chest,
-                    FillColor = Color3_fromRGB(139, 69, 19),
-                    OutlineColor = Color3_fromRGB(255, 255, 255)
-                })
-            end
+            if not chest or chest:FindFirstChild(ESPTag) then return end
+            ApplyProperties(Instance.new("Highlight"), {
+                Name = ESPTag,
+                Parent = chest,
+                FillColor = Color3_fromRGB(139, 69, 19),
+                OutlineColor = Color3_fromRGB(255, 255, 255)
+            })
         end
         
-        for _, v in pairs(workspace:GetDescendants()) do
+        for _, v in ipairs(workspace:GetDescendants()) do
             if v:IsA("Model") and (v.Name:lower():find("chest") or v.Name:lower():find("box")) then
                 TagChest(v)
             end
@@ -646,32 +647,32 @@ local success, err = pcall(function()
 
     AddScript("視覺功能", "床位透視 (Bed ESP)", "顯示地圖上所有隊伍床位的位置 (Bedwars 專用)。", function()
         local function TagBed(bed)
-            if not bed:FindFirstChild(ESPTag) then
-                ApplyProperties(Instance.new("Highlight"), {
-                    Name = ESPTag,
-                    Parent = bed,
-                    FillColor = Color3_fromRGB(255, 255, 0),
-                    OutlineColor = Color3_fromRGB(255, 255, 255)
-                })
-                
-                local billboard = Instance.new("BillboardGui")
-                ApplyProperties(billboard, {
-                    Parent = bed,
-                    AlwaysOnTop = true,
-                    Size = UDim2_new(0, 50, 0, 20),
-                    StudsOffset = Vector3_new(0, 3, 0)
-                })
-                
-                local label = Instance.new("TextLabel", billboard)
-                ApplyProperties(label, {
-                    Size = UDim2_new(1, 0, 1, 0),
-                    Text = "BED",
-                    TextColor3 = Color3_fromRGB(255, 255, 0),
-                    BackgroundTransparency = 1
-                })
-            end
+            if not bed or bed:FindFirstChild(ESPTag) then return end
+            ApplyProperties(Instance.new("Highlight"), {
+                Name = ESPTag,
+                Parent = bed,
+                FillColor = Color3_fromRGB(255, 255, 0),
+                OutlineColor = Color3_fromRGB(255, 255, 255)
+            })
+            
+            local billboard = Instance.new("BillboardGui")
+            ApplyProperties(billboard, {
+                Parent = bed,
+                AlwaysOnTop = true,
+                Size = UDim2_new(0, 50, 0, 20),
+                StudsOffset = Vector3_new(0, 3, 0)
+            })
+            
+            local label = Instance.new("TextLabel")
+            ApplyProperties(label, {
+                Parent = billboard,
+                Size = UDim2_new(1, 0, 1, 0),
+                Text = "BED",
+                TextColor3 = Color3_fromRGB(255, 255, 0),
+                BackgroundTransparency = 1
+            })
         end
-        for _, v in pairs(workspace:GetDescendants()) do
+        for _, v in ipairs(workspace:GetDescendants()) do
             if v.Name == "bed" then TagBed(v) end
         end
         Notify("成功", "床位透視已開啟。", "Success")
@@ -679,53 +680,50 @@ local success, err = pcall(function()
 
     -- === AI 助手內容 ===
     AddScript("AI 助手", "全自動 AI (Auto Play)", "AI 將自動尋找路徑、收集資源並與敵人戰鬥 (Beta)。", function()
-        Notify("AI 啟動", "正在掃描地圖與玩家位置...", "Info")
-        
         _G.AI_Enabled = not _G.AI_Enabled
-        if not _G.AI_Enabled then
-            Notify("AI 停止", "AI 已停止運行。", "Info")
-            return
-        end
+        Notify("AI 助手", _G.AI_Enabled and "正在掃描地圖與玩家位置..." or "AI 已停止運行。", "Info")
+        
+        if not _G.AI_Enabled then return end
 
         task.spawn(function()
             while _G.AI_Enabled and task_wait(0.5) do
                 local char = lp.Character
-                if char and char:FindFirstChild("HumanoidRootPart") then
-                    local hum = char:FindFirstChild("Humanoid")
-                    if hum and hum.Health > 0 then
-                        -- 1. 尋找最近的敵人
-                        local closestEnemy = nil
-                        local shortestDistance = math.huge
-                        for _, player in pairs(Players:GetPlayers()) do
-                            if player ~= lp and player.Team ~= lp.Team and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                                local dist = (char.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                local hum = char and char:FindFirstChildOfClass("Humanoid")
+                
+                if hrp and hum and hum.Health > 0 then
+                    local closestEnemy = nil
+                    local shortestDistance = math.huge
+                    
+                    for _, player in ipairs(Players:GetPlayers()) do
+                        if player ~= lp and player.Team ~= lp.Team and player.Character then
+                            local ehrp = player.Character:FindFirstChild("HumanoidRootPart")
+                            local ehum = player.Character:FindFirstChildOfClass("Humanoid")
+                            if ehrp and ehum and ehum.Health > 0 then
+                                local dist = (hrp.Position - ehrp.Position).Magnitude
                                 if dist < shortestDistance then
                                     shortestDistance = dist
-                                    closestEnemy = player.Character.HumanoidRootPart
+                                    closestEnemy = ehrp
                                 end
                             end
                         end
+                    end
 
-                        -- 2. 行動邏輯
-                        if closestEnemy then
-                            if shortestDistance < 15 then
-                                -- 戰鬥模式
-                                hum:MoveTo(closestEnemy.Position)
-                                -- 這裡可以觸發 KillAura 邏輯
-                            else
-                                -- 追擊模式 (路徑規劃)
-                                local path = PathfindingService:CreatePath({AgentCanJump = true})
-                                path:ComputeAsync(char.HumanoidRootPart.Position, closestEnemy.Position)
-                                if path.Status == Enum.PathStatus.Success then
-                                    local waypoints = path:GetWaypoints()
-                                    for i, waypoint in ipairs(waypoints) do
-                                        if not _G.AI_Enabled or (char.HumanoidRootPart.Position - closestEnemy.Position).Magnitude < 10 then break end
-                                        hum:MoveTo(waypoint.Position)
-                                        if waypoint.Action == Enum.PathWayPointAction.Jump then
-                                            hum.Jump = true
-                                        end
-                                        hum.MoveToFinished:Wait()
+                    if closestEnemy then
+                        if shortestDistance < 15 then
+                            hum:MoveTo(closestEnemy.Position)
+                        else
+                            local path = PathfindingService:CreatePath({AgentCanJump = true})
+                            path:ComputeAsync(hrp.Position, closestEnemy.Position)
+                            if path.Status == Enum.PathStatus.Success then
+                                local waypoints = path:GetWaypoints()
+                                for i, waypoint in ipairs(waypoints) do
+                                    if not _G.AI_Enabled or (hrp.Position - closestEnemy.Position).Magnitude < 10 then break end
+                                    hum:MoveTo(waypoint.Position)
+                                    if waypoint.Action == Enum.PathWayPointAction.Jump then
+                                        hum.Jump = true
                                     end
+                                    hum.MoveToFinished:Wait()
                                 end
                             end
                         end
@@ -741,13 +739,8 @@ local success, err = pcall(function()
         
         task.spawn(function()
             while _G.SmartBuy and task_wait(5) do
-                local char = lp.Character
-                if not char then return end
-                
                 local remote = ReplicatedStorage:FindFirstChild("ShopBuyItem", true)
                 if remote then
-                    -- 簡單邏輯：優先買盔甲，再買劍，最後買方塊
-                    -- 示例購買
                     remote:FireServer({["item"] = "iron_armor", ["amount"] = 1})
                     remote:FireServer({["item"] = "iron_sword", ["amount"] = 1})
                 end
@@ -762,13 +755,13 @@ local success, err = pcall(function()
         task.spawn(function()
             while _G.AutoFarm and task_wait(1) do
                 local char = lp.Character
-                if char and char:FindFirstChild("HumanoidRootPart") then
-                    -- 尋找資源點 (Bedwars 示例：Generator)
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                if hrp then
                     local closestGen = nil
                     local dist = math.huge
-                    for _, v in pairs(workspace:GetDescendants()) do
-                        if v.Name:lower():find("generator") or v.Name:lower():find("resource") then
-                            local d = (char.HumanoidRootPart.Position - v.Position).Magnitude
+                    for _, v in ipairs(workspace:GetDescendants()) do
+                        if v:IsA("BasePart") and (v.Name:lower():find("generator") or v.Name:lower():find("resource")) then
+                            local d = (hrp.Position - v.Position).Magnitude
                             if d < dist then
                                 dist = d
                                 closestGen = v
@@ -777,7 +770,7 @@ local success, err = pcall(function()
                     end
                     
                     if closestGen and dist < 100 then
-                        char.HumanoidRootPart.CFrame = closestGen.CFrame * CFrame_new(0, 3, 0)
+                        hrp.CFrame = closestGen.CFrame * CFrame_new(0, 3, 0)
                     end
                 end
             end
@@ -786,8 +779,14 @@ local success, err = pcall(function()
 
     -- === 暴力功能內容 ===
     AddScript("暴力功能", "空中漫步 (Air Walk)", "在空中建立隱形平台，實現「在天空打人」。", function()
+        _G.AirWalk = not _G.AirWalk
+        Notify("空中漫步", _G.AirWalk and "已開啟" or "已關閉", _G.AirWalk and "Success" or "Info")
+        
+        if not _G.AirWalk then return end
+        
         local char = lp.Character
-        if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
         
         local platform = Instance.new("Part")
         ApplyProperties(platform, {
@@ -797,42 +796,50 @@ local success, err = pcall(function()
             Parent = workspace
         })
         
-        local running = true
         task.spawn(function()
-            while running and ScreenGui and ScreenGui.Parent do
-                local char = lp.Character
-                if char and char:FindFirstChild("HumanoidRootPart") then
-                    platform.CFrame = char.HumanoidRootPart.CFrame * CFrame_new(0, -3.5, 0)
+            while _G.AirWalk and char and char.Parent do
+                local currentHrp = char:FindFirstChild("HumanoidRootPart")
+                if currentHrp then
+                    platform.CFrame = currentHrp.CFrame * CFrame_new(0, -3.5, 0)
                 end
                 task_wait()
             end
             if platform then platform:Destroy() end
         end)
-        Notify("提示", "空中漫步已開啟，您現在可以行走在空中。", "Success")
     end)
 
     AddScript("暴力功能", "自動點擊 (Auto Clicker)", "快速自動點擊滑鼠左鍵，配合空中漫步效果極佳。", function()
-        local clicking = false
+        _G.AutoClicker = not _G.AutoClicker
+        Notify("自動點擊", _G.AutoClicker and "已準備好，按 V 鍵切換開關。" or "已關閉", "Info")
         
+        local clicking = false
         SafeConnect(UserInputService.InputBegan, function(input, processed)
+            if not _G.AutoClicker then return end
             if not processed and input.KeyCode == Enum.KeyCode.V then
                 clicking = not clicking
-                Notify("自動點擊", clicking and "已開啟 (按 V 關閉)" or "已關閉", clicking and "Success" or "Info")
-                while clicking do
-                    if mouse1click then mouse1click() end
+                Notify("自動點擊", clicking and "已開啟" or "已關閉", clicking and "Success" or "Info")
+                while clicking and _G.AutoClicker do
+                    if env.mouse1click then env.mouse1click() end
                     task_wait(0.01)
                 end
             end
         end)
-        Notify("提示", "自動點擊已準備好，按 V 鍵切換開關。", "Info")
     end)
 
     AddScript("暴力功能", "穿牆 (Noclip)", "允許穿過所有實體障礙物。", function()
+        _G.Noclip = not _G.Noclip
+        Notify("穿牆", _G.Noclip and "已開啟" or "已關閉", _G.Noclip and "Success" or "Info")
+        
+        if not _G.Noclip then return end
+        
         SafeConnect(RunService.Stepped, function()
+            if not _G.Noclip then return end
             local char = lp.Character
             if char then
-                for _, v in pairs(char:GetDescendants()) do
-                    if v:IsA("BasePart") then
+                local descendants = char:GetDescendants()
+                for i = 1, #descendants do
+                    local v = descendants[i]
+                    if v:IsA("BasePart") and v.CanCollide then
                         v.CanCollide = false
                     end
                 end
@@ -860,14 +867,15 @@ local success, err = pcall(function()
         task.spawn(function()
             while _G.KillAura and task_wait(0.1) do
                 local char = lp.Character
-                if char and char:FindFirstChild("HumanoidRootPart") then
-                    for _, player in pairs(Players:GetPlayers()) do
-                        if player ~= lp and player.Team ~= lp.Team and player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
-                            local enemyHRP = player.Character:FindFirstChild("HumanoidRootPart")
-                            if enemyHRP then
-                                local dist = (char.HumanoidRootPart.Position - enemyHRP.Position).Magnitude
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    for _, player in ipairs(Players:GetPlayers()) do
+                        if player ~= lp and player.Team ~= lp.Team and player.Character then
+                            local ehum = player.Character:FindFirstChildOfClass("Humanoid")
+                            local ehrp = player.Character:FindFirstChild("HumanoidRootPart")
+                            if ehum and ehum.Health > 0 and ehrp then
+                                local dist = (hrp.Position - ehrp.Position).Magnitude
                                 if dist < 20 then
-                                    -- Bedwars 專用攻擊事件
                                     local remote = ReplicatedStorage:FindFirstChild("SwordHit", true) or 
                                                    ReplicatedStorage:FindFirstChild("CombatEvents", true)
                                     
@@ -892,7 +900,7 @@ local success, err = pcall(function()
         
         task.spawn(function()
             while _G.ReachEnabled and task_wait(1) do
-                for _, player in pairs(Players:GetPlayers()) do
+                for _, player in ipairs(Players:GetPlayers()) do
                     if player ~= lp and player.Character then
                         local root = player.Character:FindFirstChild("HumanoidRootPart")
                         if root then
@@ -905,18 +913,41 @@ local success, err = pcall(function()
         end)
     end)
 
-    AddScript("暴力功能", "防擊退 (Velocity)", "使你不再受到敵人的擊退效果。", function()
-        local mt = getrawmetatable(game)
-        local old_index = mt.__index
-        env.setreadonly(mt, false)
-        mt.__index = env.newcclosure(function(t, k)
-            if t:IsA("BodyVelocity") or t:IsA("BodyPosition") then
-                return nil
+    AddScript("暴力功能", "反擊退 (Velocity)", "使你不再受到敵人的擊退效果。", function()
+        _G.VelocityEnabled = not _G.VelocityEnabled
+        Notify("反擊退", _G.VelocityEnabled and "已開啟" or "已關閉", _G.VelocityEnabled and "Success" or "Info")
+        
+        if not _G.VelocityEnabled then return end
+        
+        -- 高階版：嘗試 Hook 元表 (僅執行一次)
+        if env.getrawmetatable and not _G.VelocityHooked then
+            _G.VelocityHooked = true
+            local mt = env.getrawmetatable(game)
+            local old_index = mt.__index
+            env.setreadonly(mt, false)
+            mt.__index = env.newcclosure(function(t, k)
+                if _G.VelocityEnabled and not env.checkcaller() then
+                    if typeof(t) == "Instance" and (t:IsA("BodyVelocity") or t:IsA("BodyPosition") or t:IsA("BodyAngularVelocity") or t:IsA("LinearVelocity")) then
+                        return nil
+                    end
+                end
+                return old_index(t, k)
+            end)
+            env.setreadonly(mt, true)
+            Notify("系統", "已套用高階反擊退協定。", "Success")
+        end
+
+        -- 基礎版：迴圈強制重設 (作為後備或併行)
+        task.spawn(function()
+            while _G.VelocityEnabled and task_wait() do
+                local char = lp.Character
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    hrp.Velocity = Vector3_new(0, 0, 0)
+                    hrp.RotVelocity = Vector3_new(0, 0, 0)
+                end
             end
-            return old_index(t, k)
         end)
-        env.setreadonly(mt, true)
-        Notify("成功", "防擊退已開啟。", "Success")
     end)
 
     AddScript("暴力功能", "飛行 (Fly)", "允許你在地圖上自由飛行 (按 Space 鍵上升，LeftCtrl 下降)。", function()
@@ -924,7 +955,8 @@ local success, err = pcall(function()
         Notify("飛行功能", _G.FlyEnabled and "已啟動" or "已關閉", _G.FlyEnabled and "Success" or "Info")
         
         local char = lp.Character
-        if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
         
         if _G.FlyEnabled then
             local bv = Instance.new("BodyVelocity")
@@ -932,11 +964,14 @@ local success, err = pcall(function()
                 Name = "CatFlyBV",
                 Velocity = Vector3_new(0, 0, 0),
                 MaxForce = Vector3_new(math.huge, math.huge, math.huge),
-                Parent = char.HumanoidRootPart
+                Parent = hrp
             })
             
             task.spawn(function()
-                while _G.FlyEnabled and char and char:FindFirstChild("HumanoidRootPart") do
+                while _G.FlyEnabled and char and char.Parent do
+                    local currentHrp = char:FindFirstChild("HumanoidRootPart")
+                    if not currentHrp then break end
+                    
                     local vel = Vector3_new(0, 0, 0)
                     if UserInputService:IsKeyDown(Enum.KeyCode.W) then vel = vel + workspace.CurrentCamera.CFrame.LookVector end
                     if UserInputService:IsKeyDown(Enum.KeyCode.S) then vel = vel - workspace.CurrentCamera.CFrame.LookVector end
@@ -958,15 +993,18 @@ local success, err = pcall(function()
         Notify("蜘蛛爬牆", _G.SpiderEnabled and "已啟動" or "已關閉", _G.SpiderEnabled and "Success" or "Info")
         
         task.spawn(function()
+            local rayParams = RaycastParams.new()
+            rayParams.FilterType = Enum.RaycastFilterType.Exclude
+            
             while _G.SpiderEnabled and task_wait() do
                 local char = lp.Character
-                if char and char:FindFirstChild("HumanoidRootPart") then
-                    local root = char.HumanoidRootPart
-                    local ray = Ray.new(root.Position, root.CFrame.LookVector * 3)
-                    local part = workspace:FindPartOnRay(ray, char)
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    rayParams.FilterDescendantsInstances = {char}
+                    local result = workspace:Raycast(hrp.Position, hrp.CFrame.LookVector * 3, rayParams)
                     
-                    if part then
-                        root.Velocity = Vector3_new(root.Velocity.X, 30, root.Velocity.Z)
+                    if result and result.Instance then
+                        hrp.Velocity = Vector3_new(hrp.Velocity.X, 30, hrp.Velocity.Z)
                     end
                 end
             end
@@ -974,37 +1012,63 @@ local success, err = pcall(function()
     end)
 
     AddScript("暴力功能", "全員墜空 (Void All)", "嘗試將伺服器內所有人甩進虛空 (需配合 Fling 邏輯)。", function()
-        Notify("警告", "正在嘗試全員墜空... 這需要極高的權限與特定的物理漏洞。", "Error")
+        _G.VoidAll = not _G.VoidAll
+        Notify("全員墜空", _G.VoidAll and "已啟動" or "已停止", _G.VoidAll and "Success" or "Info")
+        
+        if not _G.VoidAll then return end
+        
         local char = lp.Character
-        if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
         
         local function Fling(target)
+            if not _G.VoidAll then return end
             if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-                local hrp = target.Character.HumanoidRootPart
+                local thrp = target.Character.HumanoidRootPart
                 local bfv = Instance.new("BodyAngularVelocity")
                 ApplyProperties(bfv, {
                     AngularVelocity = Vector3_new(0, 99999, 0),
                     MaxTorque = Vector3_new(0, math.huge, 0),
                     P = math.huge,
-                    Parent = char.HumanoidRootPart
+                    Parent = hrp
                 })
                 
-                char.HumanoidRootPart.CFrame = hrp.CFrame
+                hrp.CFrame = thrp.CFrame
                 task_wait(0.1)
                 bfv:Destroy()
             end
         end
 
         task.spawn(function()
-            for _, player in pairs(Players:GetPlayers()) do
-                if player ~= lp then
-                    Notify("執行中", "正在處理玩家: " .. player.Name, "Info")
-                    Fling(player)
-                    task_wait(0.2)
+            while _G.VoidAll do
+                for _, player in ipairs(Players:GetPlayers()) do
+                    if not _G.VoidAll then break end
+                    if player ~= lp then
+                        Fling(player)
+                        task_wait(0.2)
+                    end
                 end
+                task_wait(1)
             end
-            Notify("完成", "全員墜空嘗試結束。", "Success")
         end)
+    end)
+
+    AddScript("暴力功能", "傳送至玩家 (TP to Player)", "隨機傳送至一名敵對玩家身邊 (僅供娛樂)。", function()
+        local players = Players:GetPlayers()
+        if #players <= 1 then return end
+        
+        local target = players[math_random(1, #players)]
+        while target == lp do
+            target = players[math_random(1, #players)]
+        end
+        
+        local char = lp.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        local thrp = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+        
+        if hrp and thrp then
+            hrp.CFrame = thrp.CFrame * CFrame_new(0, 5, 0)
+        end
     end)
 
     -- === 自動化功能內容 ===
@@ -1015,12 +1079,11 @@ local success, err = pcall(function()
         task.spawn(function()
             while _G.AutoBridge and task_wait(0.1) do
                 local char = lp.Character
-                if char and char:FindFirstChild("HumanoidRootPart") then
-                    -- 檢查是否持有方塊
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                if hrp then
                     local block = char:FindFirstChildOfClass("Tool")
                     if block and (block.Name:lower():find("block") or block.Name:lower():find("wool")) then
-                        local pos = char.HumanoidRootPart.Position + (char.HumanoidRootPart.CFrame.LookVector * 4) + Vector3_new(0, -3.5, 0)
-                        -- 呼叫放置遠程事件 (Bedwars 示例)
+                        local pos = hrp.Position + (hrp.CFrame.LookVector * 4) + Vector3_new(0, -3.5, 0)
                         local remote = ReplicatedStorage:FindFirstChild("PlaceBlock", true)
                         if remote then
                             remote:FireServer({["position"] = pos, ["block"] = block.Name})
@@ -1036,7 +1099,7 @@ local success, err = pcall(function()
         local remote = ReplicatedStorage:FindFirstChild("ShopBuyItem", true)
         
         if remote then
-            for _, item in pairs(items) do
+            for _, item in ipairs(items) do
                 remote:FireServer({["item"] = item, ["amount"] = 1})
             end
             Notify("成功", "已嘗試購買基礎物資。", "Success")
@@ -1052,10 +1115,15 @@ local success, err = pcall(function()
         task.spawn(function()
             while _G.AutoMine and task_wait(0.5) do
                 local char = lp.Character
-                if char and char:FindFirstChild("HumanoidRootPart") then
-                    for _, v in pairs(workspace:GetDescendants()) do
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local hrpPos = hrp.Position
+                    local descendants = workspace:GetDescendants()
+                    for i = 1, #descendants do
+                        if not _G.AutoMine then break end
+                        local v = descendants[i]
                         if v.Name == "bed" or v:IsA("BasePart") and v:GetAttribute("Health") then
-                            local dist = (char.HumanoidRootPart.Position - v.Position).Magnitude
+                            local dist = (hrpPos - v.Position).Magnitude
                             if dist < 15 then
                                 local remote = ReplicatedStorage:FindFirstChild("HitBlock", true)
                                 if remote then
@@ -1067,35 +1135,6 @@ local success, err = pcall(function()
                 end
             end
         end)
-    end)
-
-    AddScript("暴力功能", "反擊退 (Velocity)", "讓對手無法將你擊飛，站得穩如泰山。", function()
-        task.spawn(function()
-            while true do
-                local char = lp.Character
-                if char and char:FindFirstChild("HumanoidRootPart") then
-                    char.HumanoidRootPart.Velocity = Vector3_new(0, 0, 0)
-                    char.HumanoidRootPart.RotVelocity = Vector3_new(0, 0, 0)
-                end
-                task_wait()
-            end
-        end)
-        Notify("成功", "反擊退功能已啟動。", "Success")
-    end)
-
-    AddScript("暴力功能", "傳送至玩家 (TP to Player)", "隨機傳送至一名敵對玩家身邊 (僅供娛樂)。", function()
-        local players = Players:GetPlayers()
-        if #players <= 1 then return end
-        
-        local target = players[math.random(1, #players)]
-        while target == lp do
-            target = players[math.random(1, #players)]
-        end
-        
-        local char = lp.Character
-        if char and char:FindFirstChild("HumanoidRootPart") and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-            char.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame * CFrame_new(0, 5, 0)
-        end
     end)
 
     -- === 通用工具內容 ===
@@ -1157,25 +1196,34 @@ local success, err = pcall(function()
     end)
 
     AddScript("BEDWARS 專區", "全自動爆床 (Instant Bed)", "嘗試自動破壞伺服器內所有敵對隊伍的床位 (需配合繞過)。", function()
-        Notify("警告", "正在啟動全自動爆床... 這非常容易被偵測，請謹慎使用。", "Error")
+        _G.InstantBed = not _G.InstantBed
+        Notify("全自動爆床", _G.InstantBed and "已啟動" or "已停止", _G.InstantBed and "Error" or "Info")
+        
+        if not _G.InstantBed then return end
+        
         task.spawn(function()
-            local beds = {}
-            for _, v in pairs(workspace:GetDescendants()) do
-                if v.Name == "bed" then table.insert(beds, v) end
-            end
-            
-            for _, bed in pairs(beds) do
-                local team = bed:GetAttribute("Team")
-                if team ~= lp.Team then
-                    Notify("執行中", "正在嘗試破壞床位: " .. tostring(team or "未知"), "Info")
-                    local remote = ReplicatedStorage:FindFirstChild("DamageBlock", true)
-                    if remote then
-                        remote:FireServer({["position"] = bed.Position, ["block"] = "bed"})
-                    end
-                    task_wait(0.5)
+            while _G.InstantBed do
+                local beds = {}
+                local descendants = workspace:GetDescendants()
+                for i = 1, #descendants do
+                    local v = descendants[i]
+                    if v.Name == "bed" then table.insert(beds, v) end
                 end
+                
+                for i = 1, #beds do
+                    if not _G.InstantBed then break end
+                    local bed = beds[i]
+                    local team = bed:GetAttribute("Team")
+                    if team ~= lp.Team then
+                        local remote = ReplicatedStorage:FindFirstChild("DamageBlock", true)
+                        if remote then
+                            remote:FireServer({["position"] = bed.Position, ["block"] = "bed"})
+                        end
+                        task_wait(0.2)
+                    end
+                end
+                task_wait(1)
             end
-            Notify("完成", "所有可見床位已嘗試破壞。", "Success")
         end)
     end)
 
@@ -1241,7 +1289,9 @@ local success, err = pcall(function()
 
     AddScript("優化功能", "清除垃圾 (Clear Lag)", "刪除地圖中散落的掉落物與零件，減少延遲。", function()
         local count = 0
-        for _, v in pairs(workspace:GetChildren()) do
+        local children = workspace:GetChildren()
+        for i = 1, #children do
+            local v = children[i]
             if v:IsA("Part") and v.Name == "Handle" then
                 v:Destroy()
                 count = count + 1
