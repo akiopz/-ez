@@ -21,6 +21,120 @@ local success, err = pcall(function()
     local task_wait = task.wait
     local math_random = math.random
 
+    -- === 連接管理系統 (防止內存洩漏) ===
+    local Connections = {}
+    local function SafeConnect(signal, callback)
+        if not signal and not signal.Connect then return nil end
+        local success, connection = pcall(function()
+            return signal:Connect(callback)
+        end)
+        if success and connection then
+            table.insert(Connections, connection)
+            return connection
+        end
+        return nil
+    end
+
+    -- 批量屬性設置工具 (具備安全檢查)
+    local function ApplyProperties(instance, props)
+        if not instance then return end
+        for k, v in pairs(props) do
+            local success, err = pcall(function()
+                instance[k] = v
+            end)
+            if not success then
+                warn("ApplyProperties Error [" .. tostring(instance) .. "]: 無法設置屬性 " .. tostring(k) .. " - " .. tostring(err))
+            end
+        end
+    end
+
+    -- 通知系統 (提前定義以便使用)
+    local function Notify(title, text, notifyType)
+        task_spawn(function()
+            -- 如果 GUI 還沒初始化完成則先等待
+            local count = 0
+            while not _G.CatScreenGui and count < 20 do 
+                task_wait(0.1) 
+                count = count + 1
+            end
+            
+            local parent = _G.CatScreenGui or env.gethui()
+            local NotifyFrame = Instance.new("Frame")
+            local NotifyCorner = Instance.new("UICorner")
+            local NotifyTitle = Instance.new("TextLabel")
+            local NotifyText = Instance.new("TextLabel")
+            
+            ApplyProperties(NotifyFrame, {
+                Name = "NotifyFrame",
+                Parent = parent,
+                BackgroundColor3 = notifyType == "Error" and Color3_fromRGB(150, 0, 0) or Color3_fromRGB(40, 40, 40),
+                Position = UDim2_new(1, 10, 0.8, 0),
+                Size = UDim2_new(0, 220, 0, 60),
+                ZIndex = 100
+            })
+            
+            NotifyCorner.CornerRadius = UDim.new(0, 8)
+            NotifyCorner.Parent = NotifyFrame
+            
+            ApplyProperties(NotifyTitle, {
+                Parent = NotifyFrame,
+                BackgroundTransparency = 1,
+                Position = UDim2_new(0, 10, 0, 5),
+                Size = UDim2_new(1, -20, 0, 20),
+                Font = Enum.Font.GothamBold,
+                Text = title,
+                TextColor3 = Color3_fromRGB(255, 255, 255),
+                TextSize = 14,
+                TextXAlignment = Enum.TextXAlignment.Left
+            })
+            
+            ApplyProperties(NotifyText, {
+                Parent = NotifyFrame,
+                BackgroundTransparency = 1,
+                Position = UDim2_new(0, 10, 0, 25),
+                Size = UDim2_new(1, -20, 0, 30),
+                Font = Enum.Font.Gotham,
+                Text = text,
+                TextColor3 = Color3_fromRGB(200, 200, 200),
+                TextSize = 12,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                TextWrapped = true
+            })
+            
+            NotifyFrame:TweenPosition(UDim2_new(1, -230, 0.8, 0), "Out", "Back", 0.5, true)
+            task_wait(3)
+            if NotifyFrame and NotifyFrame.Parent then
+                NotifyFrame:TweenPosition(UDim2_new(1, 10, 0.8, 0), "In", "Back", 0.5, true)
+                task_wait(0.5)
+                NotifyFrame:Destroy()
+            end
+        end)
+    end
+
+    -- 安全載入函數 (Secure Loadstring)
+    local LoadCache = {}
+    local function SecureLoad(url)
+        if LoadCache[url] then return LoadCache[url] end
+        
+        local success, result = pcall(function()
+            return game:HttpGet(url, true)
+        end)
+        
+        if success and result and #result > 0 then
+            local func, err = env.loadstring(result)
+            if func then
+                LoadCache[url] = func
+                return func
+            else
+                warn("Loadstring Error: " .. tostring(err))
+            end
+        else
+            warn("HttpGet Error: " .. tostring(result))
+        end
+        
+        return function() end
+    end
+
     -- === 反偵測核心模組 ===
     local function GenerateRandomString(length)
         local chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -63,6 +177,71 @@ local success, err = pcall(function()
     _G.CatLoaderRunning = true
     _G.CatLoaderName = GUIName
 
+    -- === GUI 實例定義 ===
+    local ScreenGui = Instance.new("ScreenGui")
+    local MainFrame = Instance.new("Frame")
+    local UICorner_Main = Instance.new("UICorner")
+    local LeftPanel = Instance.new("Frame")
+    local UICorner_Left = Instance.new("UICorner")
+    local Title = Instance.new("TextLabel")
+    local TabContainer = Instance.new("Frame")
+    local ContentContainer = Instance.new("Frame")
+    local CloseButton = Instance.new("TextButton")
+
+    -- === 初始化 GUI ===
+    local ParentUI = env.gethui()
+    _G.CatScreenGui = ScreenGui
+    ScreenGui.Parent = ParentUI
+    
+    ApplyProperties(ScreenGui, {
+        Name = GUIName,
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+        ResetOnSpawn = false
+    })
+
+    ApplyProperties(MainFrame, {
+        Name = "MainFrame",
+        BackgroundColor3 = Color3.fromRGB(20, 20, 20),
+        Position = UDim2.new(0.5, -275, 0.5, -200),
+        Size = UDim2.new(0, 550, 0, 400),
+        Active = true,
+        Parent = ScreenGui
+    })
+
+    -- 自定義拖拽邏輯 (取代已棄用的 Draggable)
+    local dragging, dragInput, dragStart, startPos
+    SafeConnect(MainFrame.InputBegan, function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = MainFrame.Position
+            
+            local moveConn
+            moveConn = input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                    if moveConn then moveConn:Disconnect() end
+                end
+            end)
+        end
+    end)
+    
+    SafeConnect(MainFrame.InputChanged, function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+    
+    SafeConnect(UserInputService.InputChanged, function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            MainFrame.Position = UDim2_new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+
+    UICorner_Main.CornerRadius = UDim.new(0, 12)
+    UICorner_Main.Parent = MainFrame
+
     -- 元表保護 (Metatable Protection)
     -- 防止遊戲偵測到屬性修改與敏感方法調用
     local mt = env.getrawmetatable(game)
@@ -76,8 +255,7 @@ local success, err = pcall(function()
         JumpPower = 50,
         JumpHeight = 7.2,
         Health = 100,
-        MaxHealth = 100,
-        CFrame = CFrame_new(0, 0, 0) -- 用於反傳送偵測
+        MaxHealth = 100
     }
 
     local BlockedRemotes = {
@@ -94,8 +272,6 @@ local success, err = pcall(function()
         if not env.checkcaller() then
             if t:IsA("Humanoid") and IsLocalCharacter(t) and SpoofedProperties[k] then
                 return SpoofedProperties[k]
-            elseif t:IsA("BasePart") and k == "CFrame" and IsLocalCharacter(t) and SpoofedProperties.CFrame ~= CFrame_new(0,0,0) then
-                return SpoofedProperties.CFrame
             elseif (t == CoreGui or t == lp:FindFirstChild("PlayerGui")) and (k == GUIName or k == _G.CatLoaderName) then
                 return nil
             end
@@ -107,9 +283,7 @@ local success, err = pcall(function()
         if not env.checkcaller() then
             if t:IsA("Humanoid") and IsLocalCharacter(t) and SpoofedProperties[k] then
                 SpoofedProperties[k] = v
-                return
-            elseif t:IsA("BasePart") and k == "CFrame" and IsLocalCharacter(t) then
-                SpoofedProperties.CFrame = v
+                -- 不再 return，允許實際屬性被設置以維持移動能力
             end
         end
         old_newindex(t, k, v)
@@ -158,160 +332,10 @@ local success, err = pcall(function()
     end)
     env.setreadonly(mt, true)
 
-    -- 安全載入函數 (Secure Loadstring) - 優化快取與非同步
-    local LoadCache = {}
-    local function SecureLoad(url)
-        if LoadCache[url] then return LoadCache[url] end
-        
-        local success, result = pcall(function()
-            return game:HttpGet(url, true)
-        end)
-        
-        if success and result and #result > 0 then
-            local func, err = env.loadstring(result)
-            if func then
-                LoadCache[url] = func
-                return func
-            else
-                Notify("載入錯誤", "代碼解析失敗: " .. tostring(err), "Error")
-                warn("Loadstring Error: " .. tostring(err))
-            end
-        else
-            Notify("網路錯誤", "無法從來源獲取代碼，請檢查網路連接", "Error")
-            warn("HttpGet Error: " .. tostring(result))
-        end
-        
-        -- 返回一個空函數，防止腳本崩潰
-        return function() end
-    end
+    -- === GUI 構建 ===
 
-    -- 批量屬性設置工具 (具備安全檢查)
-    local function ApplyProperties(instance, props)
-        if not instance then return end
-        for k, v in pairs(props) do
-            local success, err = pcall(function()
-                instance[k] = v
-            end)
-            if not success then
-                warn("ApplyProperties Error [" .. tostring(instance) .. "]: 無法設置屬性 " .. tostring(k) .. " - " .. tostring(err))
-            end
-        end
-    end
-
-    local ScreenGui = Instance.new("ScreenGui")
-    local MainFrame = Instance.new("Frame")
-    local LeftPanel = Instance.new("Frame")
-    local RightPanel = Instance.new("Frame")
-    local Title = Instance.new("TextLabel")
-    local TabContainer = Instance.new("Frame")
-    local ContentContainer = Instance.new("Frame")
-    local UICorner_Main = Instance.new("UICorner")
-    local UICorner_Left = Instance.new("UICorner")
-    local CloseButton = Instance.new("TextButton")
-
-    -- 初始化 GUI (使用 ParentUI 最後賦值以加快顯示速度)
-    local ParentUI = env.gethui()
-    
-    ApplyProperties(ScreenGui, {
-        Name = GUIName,
-        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-        ResetOnSpawn = false
-    })
-
-    ApplyProperties(MainFrame, {
-        Name = "MainFrame",
-        BackgroundColor3 = Color3.fromRGB(20, 20, 20),
-        Position = UDim2.new(0.5, -275, 0.5, -200),
-        Size = UDim2.new(0, 550, 0, 400),
-        Active = true,
-        Parent = ScreenGui
-    })
-
-    -- 自定義拖拽邏輯 (取代已棄用的 Draggable)
-    local dragging, dragInput, dragStart, startPos
-    SafeConnect(MainFrame.InputBegan, function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragStart = input.Position
-            startPos = MainFrame.Position
-            
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
-            end)
-        end
-    end)
-    
-    SafeConnect(MainFrame.InputChanged, function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-            dragInput = input
-        end
-    end)
-    
-    SafeConnect(UserInputService.InputChanged, function(input)
-        if input == dragInput and dragging then
-            local delta = input.Position - dragStart
-            MainFrame.Position = UDim2_new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.X.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
-
-    UICorner_Main.CornerRadius = UDim.new(0, 12)
-    UICorner_Main.Parent = MainFrame
-
-    -- 通知系統 (優化非同步執行)
-    local function Notify(title, text, type)
-        task_spawn(function()
-            local NotifyFrame = Instance.new("Frame")
-            local NotifyCorner = Instance.new("UICorner")
-            local NotifyTitle = Instance.new("TextLabel")
-            local NotifyText = Instance.new("TextLabel")
-            
-            ApplyProperties(NotifyFrame, {
-                Name = "NotifyFrame",
-                Parent = ScreenGui,
-                BackgroundColor3 = type == "Error" and Color3_fromRGB(150, 0, 0) or Color3_fromRGB(40, 40, 40),
-                Position = UDim2_new(1, 10, 0.8, 0),
-                Size = UDim2_new(0, 220, 0, 60)
-            })
-            
-            NotifyCorner.CornerRadius = UDim.new(0, 8)
-            NotifyCorner.Parent = NotifyFrame
-            
-            ApplyProperties(NotifyTitle, {
-                Parent = NotifyFrame,
-                BackgroundTransparency = 1,
-                Position = UDim2_new(0, 10, 0, 5),
-                Size = UDim2_new(1, -20, 0, 20),
-                Font = Enum.Font.GothamBold,
-                Text = title,
-                TextColor3 = Color3_fromRGB(255, 255, 255),
-                TextSize = 14,
-                TextXAlignment = Enum.TextXAlignment.Left
-            })
-            
-            ApplyProperties(NotifyText, {
-                Parent = NotifyFrame,
-                BackgroundTransparency = 1,
-                Position = UDim2_new(0, 10, 0, 25),
-                Size = UDim2_new(1, -20, 0, 30),
-                Font = Enum.Font.Gotham,
-                Text = text,
-                TextColor3 = Color3_fromRGB(200, 200, 200),
-                TextSize = 12,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                TextWrapped = true
-            })
-            
-            NotifyFrame:TweenPosition(UDim2_new(1, -230, 0.8, 0), "Out", "Back", 0.5, true)
-            task_wait(3)
-            if NotifyFrame and NotifyFrame.Parent then
-                NotifyFrame:TweenPosition(UDim2_new(1, 10, 0.8, 0), "In", "Back", 0.5, true)
-                task_wait(0.5)
-                NotifyFrame:Destroy()
-            end
-        end)
-    end
+    -- 通知系統 (使用前面定義的函數)
+    Notify("Cat V3", "腳本已成功載入！", "Success")
 
     -- 左側面板
     ApplyProperties(LeftPanel, {
