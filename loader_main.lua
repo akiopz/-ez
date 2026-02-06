@@ -2,7 +2,7 @@
 ---@diagnostic disable: undefined-global, deprecated, undefined-field
 local success, err = pcall(function()
     -- === 基礎配置 ===
-    local BASE_URL = "https://raw.githubusercontent.com/fff92/Halol/main/"
+    local BASE_URL = "https://raw.githubusercontent.com/akiopz/Roblox-Scripts/main/"
     local function GetScript(path)
         return loadstring(game:HttpGet(BASE_URL .. path))()
     end
