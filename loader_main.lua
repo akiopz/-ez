@@ -87,13 +87,13 @@ local success, err = pcall(function()
     
     local functionsModule = GetScript("src/modules/functions.lua")
     local CatFunctions = functionsModule.Init(env)
-    local blatantModule = blatantModule or GetScript("src/modules/blatant.lua")
+    local blatantModule = GetScript("src/modules/blatant.lua")
     local Blatant = blatantModule.Init(mainGui, function(...) Notify("Halol V4.8", ...) end, CatFunctions)
 
-    local aiModule = aiModule or GetScript("src/modules/ai.lua")
+    local aiModule = GetScript("src/modules/ai.lua")
     local AI = aiModule.Init(CatFunctions, Blatant)
 
-    local visualsModule = visualsModule or GetScript("src/modules/visuals.lua")
+    local visualsModule = GetScript("src/modules/visuals.lua")
     local Visuals = visualsModule.Init(mainGui, function(...) Notify("Halol V4.8", ...) end)
 
     local firstTab = GuiUtils.CreateTab("自動核心")
@@ -146,7 +146,7 @@ local success, err = pcall(function()
     GuiUtils.AddScript("視覺顯示", "血量顯示", "在玩家頭頂顯示即時血量", function(s) Visuals.ToggleHealthDisplay(s) end, Notify)
     GuiUtils.AddScript("視覺顯示", "傷害指示器", "顯示造成的傷害數值動畫", function(s) CatFunctions.ToggleDamageIndicator(s) end, Notify)
 
-    Notify("Halol V4.7", "腳本已成功加載！", 5)
+    Notify("Halol V4.8", "腳本已成功加載！", 5)
 end)
 
 if not success then
