@@ -92,7 +92,8 @@ function GuiModule.CreateMainGui()
         ImageColor3 = Color3_fromRGB(100, 100, 255),
         ImageTransparency = 0.9,
         TileSize = UDim2_new(0, 64, 0, 64),
-        ZIndex = 0
+        ZIndex = 0,
+        Active = false -- 禁止攔截點擊
     })
 
     -- 外發光霓虹效果
@@ -105,7 +106,8 @@ function GuiModule.CreateMainGui()
         Image = "rbxassetid://5028857084", -- 柔和發光
         ImageColor3 = Color3_fromRGB(0, 150, 255),
         ImageTransparency = 0.6,
-        ZIndex = -1
+        ZIndex = -1,
+        Active = false -- 禁止攔截點擊
     })
 
     -- 動態掃描線
@@ -117,7 +119,8 @@ function GuiModule.CreateMainGui()
         BorderSizePixel = 0,
         Position = UDim2_new(0, 0, 0, 0),
         Size = UDim2_new(1, 0, 0, 1),
-        ZIndex = 5
+        ZIndex = 5,
+        Active = false -- 禁止攔截點擊
     })
 
     MainCorner.CornerRadius = UDim.new(0, 5) -- 更硬朗的圓角
@@ -130,7 +133,8 @@ function GuiModule.CreateMainGui()
         BorderSizePixel = 0,
         Position = UDim2_new(0, 0, 0, 0),
         Size = UDim2_new(1, 0, 0, 2),
-        ZIndex = 10
+        ZIndex = 10,
+        Active = false -- 禁止攔截點擊
     })
 
     ApplyProperties(Title, {

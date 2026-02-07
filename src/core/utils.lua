@@ -63,7 +63,7 @@ function GuiUtils.Init(Gui)
         PageList.SortOrder = Enum.SortOrder.LayoutOrder
         
         local function Switch()
-            if Page.Visible then return end -- 防止重複點擊
+            if Page.Visible then return end
 
             for _, t in pairs(Tabs) do
                 t.Button.BackgroundColor3 = Color3_fromRGB(15, 15, 25)
@@ -78,33 +78,11 @@ function GuiUtils.Init(Gui)
             local stroke = TabButton:FindFirstChildOfClass("UIStroke")
             if stroke then stroke.Color = Color3_fromRGB(0, 150, 255) end
             
-            -- 切換時的淡入動畫
             Page.Visible = true
-            local canvasGroup = Page:FindFirstChildOfClass("CanvasGroup") or Instance.new("CanvasGroup")
-            if not canvasGroup.Parent then
-                canvasGroup.Size = UDim2_new(1, 0, 1, 0)
-                canvasGroup.BackgroundTransparency = 1
-                canvasGroup.Parent = Page
-                -- 將所有原本在 Page 裡的子物件移到 CanvasGroup
-                for _, child in pairs(Page:GetChildren()) do
-                    if child ~= canvasGroup and not child:IsA("UIListLayout") then
-                        child.Parent = canvasGroup
-                    end
-                end
-                PageList.Parent = canvasGroup
-            end
-
-            canvasGroup.GroupTransparency = 1
-            task.spawn(function()
-                for i = 1, 0, -0.1 do
-                    canvasGroup.GroupTransparency = i
-                    task.wait(0.01)
-                end
-                canvasGroup.GroupTransparency = 0
-            end)
+            -- 暫時移除 CanvasGroup 動畫以確保穩定性
         end
         
-        Gui.SafeConnect(TabButton.MouseButton1Click, Switch)
+        Gui.SafeConnect(TabButton.Activated, Switch)
         
         Gui.SafeConnect(PageList:GetPropertyChangedSignal("AbsoluteContentSize"), function()
             Page.CanvasSize = UDim2_new(0, 0, 0, PageList.AbsoluteContentSize.Y + 10)
@@ -118,16 +96,7 @@ function GuiUtils.Init(Gui)
         local targetTab = Tabs[tabName]
         if not targetTab then return end
         
-        -- 獲取或創建內容容器 (CanvasGroup)
-        local container = targetTab.Page:FindFirstChildOfClass("CanvasGroup")
-        if not container then
-            container = Instance.new("CanvasGroup")
-            container.Size = UDim2_new(1, 0, 1, 0)
-            container.BackgroundTransparency = 1
-            container.Parent = targetTab.Page
-            targetTab.List.Parent = container
-        end
-
+        local container = targetTab.Page
         local Button = Instance.new("TextButton")
         local BCorner = Instance.new("UICorner")
         local BStroke = Instance.new("UIStroke")
@@ -146,7 +115,8 @@ function GuiUtils.Init(Gui)
             TextXAlignment = Enum.TextXAlignment.Left,
             TextYAlignment = Enum.TextYAlignment.Top,
             AutoButtonColor = false,
-            BorderSizePixel = 0
+            BorderSizePixel = 0,
+            Active = true -- 確保 Active 為 true
         })
         
         Gui.ApplyProperties(BStroke, {
@@ -184,7 +154,7 @@ function GuiUtils.Init(Gui)
 
         local active = false
         local isProcessing = false
-        Gui.SafeConnect(Button.MouseButton1Click, function()
+        Gui.SafeConnect(Button.Activated, function()
             if isProcessing then return end
             isProcessing = true
             
@@ -218,6 +188,7 @@ function GuiUtils.Init(Gui)
             isProcessing = false
         end)
         
+        -- 更新滾動範圍
         targetTab.Page.CanvasSize = UDim2_new(0, 0, 0, targetTab.List.AbsoluteContentSize.Y + 20)
     end
 

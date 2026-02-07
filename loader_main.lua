@@ -14,7 +14,7 @@ env_global.ProjectileAura = env_global.ProjectileAura or false
 env_global.VelocityHorizontal = env_global.VelocityHorizontal or 15
 env_global.VelocityVertical = env_global.VelocityVertical or 100
 
-print("Halol V4.3 開始加載 (深度修復版本)...")
+print("Halol V4.4 開始加載 (交互修復版本)...")
 
 -- 增加一個隨機數來徹底繞過快取
 local sessionID = tostring(math.random(100000, 999999))
@@ -36,7 +36,7 @@ local function Notify(title, text, duration)
     end)
 end
 
-Notify("Halol V4.3", "正在從雲端獲取最新組件...", 3)
+Notify("Halol V4.4", "正在從雲端獲取最新組件...", 3)
 
 local success, err = pcall(function()
     local HOSTS = {
@@ -82,18 +82,18 @@ local success, err = pcall(function()
     local utilsModule = GetScript("src/core/utils.lua")
     local GuiUtils = utilsModule.Init(mainGui)
 
-    Notify("Halol V4.3", "核心組件已就緒，載入介面中...", 3)
+    Notify("Halol V4.4", "核心組件已就緒，載入介面中...", 3)
     
     local functionsModule = GetScript("src/modules/functions.lua")
     local CatFunctions = functionsModule.Init(env)
     local blatantModule = GetScript("src/modules/blatant.lua")
-    local Blatant = blatantModule.Init(mainGui, function(...) Notify("Halol V4.3", ...) end, CatFunctions)
+    local Blatant = blatantModule.Init(mainGui, function(...) Notify("Halol V4.4", ...) end, CatFunctions)
 
     local aiModule = GetScript("src/modules/ai.lua")
     local AI = aiModule.Init(CatFunctions, Blatant)
 
     local visualsModule = GetScript("src/modules/visuals.lua")
-    local Visuals = visualsModule.Init(mainGui, function(...) Notify("Halol V4.3", ...) end)
+    local Visuals = visualsModule.Init(mainGui, function(...) Notify("Halol V4.4", ...) end)
 
     local firstTab = GuiUtils.CreateTab("自動核心")
     GuiUtils.CreateTab("視覺功能")
