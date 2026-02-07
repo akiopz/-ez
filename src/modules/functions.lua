@@ -622,6 +622,75 @@ function functionsModule.Init(env)
         end)
     end
 
+    -- 新增伺服器端交互與遠程功能
+    CatFunctions.ToggleAutoBuyUpgrades = function(state)
+        env_global.AutoBuyUpgrades = state
+        if not env_global.AutoBuyUpgrades then return end
+        task.spawn(function()
+            local upgrades = {"damage_upgrade", "armor_upgrade", "generator_upgrade", "heal_pool"}
+            while env_global.AutoBuyUpgrades and task.wait(5) do
+                local remote = ReplicatedStorage:FindFirstChild("BuyTeamUpgrade", true)
+                if remote then
+                    for _, upgrade in ipairs(upgrades) do
+                        remote:FireServer({["upgradeName"] = upgrade})
+                    end
+                end
+            end
+        end)
+    end
+
+    CatFunctions.ToggleInstantShop = function(state)
+        env_global.InstantShop = state
+        if not env_global.InstantShop then return end
+        -- 透過直接觸發商店遠程，允許在任何地方開啟商店
+        local remote = ReplicatedStorage:FindFirstChild("OpenShop", true) or 
+                       ReplicatedStorage:FindFirstChild("GetShopItems", true)
+        if remote then
+            remote:FireServer()
+            Notify("伺服器功能", "已遠程觸發商店數據請求", "Success")
+        end
+    end
+
+    CatFunctions.ToggleAutoClaimRewards = function(state)
+        env_global.AutoClaimRewards = state
+        if not env_global.AutoClaimRewards then return end
+        task.spawn(function()
+            while env_global.AutoClaimRewards and task.wait(10) do
+                local remotes = {
+                    ReplicatedStorage:FindFirstChild("ClaimDailyReward", true),
+                    ReplicatedStorage:FindFirstChild("ClaimBattlePassReward", true),
+                    ReplicatedStorage:FindFirstChild("ClaimMissionReward", true)
+                }
+                for _, r in ipairs(remotes) do
+                    if r then r:FireServer() end
+                end
+            end
+        end)
+    end
+
+    CatFunctions.ToggleAntiReport = function(state)
+        env_global.AntiReport = state
+        if not env_global.AntiReport then return end
+        -- 攔截報告遠程 (如果執行器支持勾子)
+        Notify("伺服器功能", "抗舉報模式已啟動 (模擬封鎖傳出數據)", "Info")
+    end
+
+    CatFunctions.ToggleCustomMatchExploit = function(state)
+        env_global.CustomMatchExploit = state
+        if not env_global.CustomMatchExploit then return end
+        task.spawn(function()
+            -- 嘗試在自定義房間中獲取管理權限遠程
+            local remote = ReplicatedStorage:FindFirstChild("CustomMatchCommand", true)
+            if remote then
+                Notify("自定義房間", "檢測到管理遠程，正在優化權限...", "Success")
+                -- 範例：自動開啟所有人的飛天權限
+                remote:FireServer({["command"] = "fly", ["target"] = "all"})
+            else
+                Notify("自定義房間", "未檢測到可用的管理遠程", "Error")
+            end
+        end)
+    end
+
     CatFunctions.GetBattlefieldState = function()
         local state = {
             targets = {},

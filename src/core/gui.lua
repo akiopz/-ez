@@ -80,9 +80,42 @@ function GuiModule.CreateMainGui()
         ClipsDescendants = false, -- 改為 false 以允許陰影/發光顯示
         Active = true,
         Selectable = true,
-        Draggable = true,
         ZIndex = 5
     })
+
+    -- 手動實現拖動功能 (替代已過時的 Draggable)
+    local dragging, dragInput, dragStart, startPos
+    
+    local function update(input)
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2_new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+    
+    SafeConnect(MainFrame.InputBegan, function(input)
+        if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) and not UserInputService:GetFocusedTextBox() then
+            dragging = true
+            dragStart = input.Position
+            startPos = MainFrame.Position
+            
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+    
+    SafeConnect(MainFrame.InputChanged, function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+    
+    SafeConnect(UserInputService.InputChanged, function(input)
+        if input == dragInput and dragging then
+            update(input)
+        end
+    end)
 
     -- 背景網格裝飾
     ApplyProperties(BgPattern, {
@@ -161,7 +194,7 @@ function GuiModule.CreateMainGui()
         Position = UDim2_new(0, 105, 0, 22),
         Size = UDim2_new(0, 100, 0, 20),
         Font = Enum.Font.Code, -- 改用程式碼字體更有科幻感
-        Text = "V4.6 // SYSTEM_ACTIVE",
+        Text = "V4.8 // SYSTEM_ACTIVE",
         TextColor3 = Color3_fromRGB(0, 255, 255),
         TextSize = 10,
         TextXAlignment = Enum.TextXAlignment.Left,

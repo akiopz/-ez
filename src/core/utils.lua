@@ -34,7 +34,9 @@ function GuiUtils.Init(Gui)
             Font = Enum_Font.Code, -- 使用程式碼字體
             Text = "> " .. name, -- 加入科幻前綴
             TextColor3 = Color3_fromRGB(100, 100, 150),
-            TextSize = 13
+            TextSize = 13,
+            ZIndex = 15, -- 確保在容器之上
+            Active = true
         })
         
         Gui.ApplyProperties(TabStroke, {
@@ -132,7 +134,8 @@ function GuiUtils.Init(Gui)
             AutoButtonColor = false,
             BorderSizePixel = 0,
             Active = true,
-            Selectable = true
+            Selectable = true,
+            ZIndex = 20 -- 確保在內容容器之上
         })
 
         Gui.ApplyProperties(BCorner, { CornerRadius = UDim.new(0, 6), Parent = Button })
@@ -143,7 +146,8 @@ function GuiUtils.Init(Gui)
             Position = UDim2_new(0, 5, 0, 8),
             BackgroundColor3 = Color3_fromRGB(60, 60, 80),
             BorderSizePixel = 0,
-            Parent = Button
+            Parent = Button,
+            ZIndex = 21
         })
         Gui.ApplyProperties(Instance.new("UICorner"), { CornerRadius = UDim.new(1, 0), Parent = StatusLight })
 
@@ -156,7 +160,9 @@ function GuiUtils.Init(Gui)
             TextColor3 = Color3_fromRGB(100, 100, 130),
             TextSize = 12,
             TextXAlignment = Enum.TextXAlignment.Left,
-            Parent = Button
+            Parent = Button,
+            ZIndex = 21,
+            Active = false -- 不攔截父按鈕點擊
         })
 
         local active = false
