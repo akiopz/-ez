@@ -1,26 +1,27 @@
----@diagnostic disable: undefined-global, undefined-field, deprecated
-local getgenv = getgenv or function() return _G end
-local game = game or getgenv().game
-local ipairs = ipairs or getgenv().ipairs
-local pcall = pcall or getgenv().pcall
-local os = os or getgenv().os
-local print = print or getgenv().print
-local error = error or getgenv().error
-local tostring = tostring or getgenv().tostring
-local load_func = (getgenv().loadstring or getgenv().load or loadstring or load)
+---@diagnostic disable: undefined-global, undefined-field, deprecated, inject-field
+local getgenv = (getgenv or function() return _G end)
+local env_global = getgenv()
+local game = game or env_global.game
+local ipairs = ipairs or env_global.ipairs
+local pcall = pcall or env_global.pcall
+local os = os or env_global.os
+local print = print or env_global.print
+local error = error or env_global.error
+local tostring = tostring or env_global.tostring
+local load_func = (env_global.loadstring or env_global.load or loadstring or load)
 
-_G.ProjectileAura = _G.ProjectileAura or false
-_G.VelocityHorizontal = _G.VelocityHorizontal or 15
-_G.VelocityVertical = _G.VelocityVertical or 100
+env_global.ProjectileAura = env_global.ProjectileAura or false
+env_global.VelocityHorizontal = env_global.VelocityHorizontal or 15
+env_global.VelocityVertical = env_global.VelocityVertical or 100
 
 print("Halol V4.0 開始加載...")
 
-_G.AI_Enabled = _G.AI_Enabled or false
-_G.GodModeAI = _G.GodModeAI or false
-_G.AutoToxic = _G.AutoToxic or false
-_G.SpeedValue = _G.SpeedValue or 23
-_G.KillAuraCPS = _G.KillAuraCPS or 10
-_G.KillAuraMaxTargets = _G.KillAuraMaxTargets or 1
+env_global.AI_Enabled = env_global.AI_Enabled or false
+env_global.GodModeAI = env_global.GodModeAI or false
+env_global.AutoToxic = env_global.AutoToxic or false
+env_global.SpeedValue = env_global.SpeedValue or 23
+env_global.KillAuraCPS = env_global.KillAuraCPS or 10
+env_global.KillAuraMaxTargets = env_global.KillAuraMaxTargets or 1
 
 local function Notify(title, text, duration)
     pcall(function()

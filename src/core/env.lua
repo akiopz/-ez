@@ -31,21 +31,45 @@ local math_random = math.random
 local math_floor = math.floor
 
 local function GetEnvironment()
+    local g = getgenv()
     local e = {
-        gethui = (getgenv and getgenv().gethui) or function() return game:GetService("CoreGui") end,
+        gethui = g.gethui or function() return game:GetService("CoreGui") end,
         getgenv = getgenv,
-        isrenderobj = (getgenv and getgenv().isrenderobj) or function() return false end,
-        setreadonly = (getgenv and getgenv().setreadonly) or function(_, _) end,
-        make_writeable = (getgenv and getgenv().make_writeable) or function(target) 
-            local sr = (getgenv and getgenv().setreadonly)
+        isrenderobj = g.isrenderobj or function() return false end,
+        setreadonly = g.setreadonly or function(_, _) end,
+        make_writeable = g.make_writeable or function(target) 
+            local sr = g.setreadonly
             if sr then sr(target, false) end 
         end,
-        getrawmetatable = (getgenv and getgenv().getrawmetatable) or function(target) return debug.getmetatable(target) end,
-        newcclosure = (getgenv and getgenv().newcclosure) or function(f) return f end,
-        checkcaller = (getgenv and getgenv().checkcaller) or function() return false end,
-        setfpscap = (getgenv and getgenv().setfpscap) or function() end,
-        getnamecallmethod = (getgenv and getgenv().getnamecallmethod) or function() return "" end,
-        loadstring = load_func
+        getrawmetatable = g.getrawmetatable or function(target) return debug.getmetatable(target) end,
+        newcclosure = g.newcclosure or function(f) return f end,
+        checkcaller = g.checkcaller or function() return false end,
+        setfpscap = g.setfpscap or function() end,
+        getnamecallmethod = g.getnamecallmethod or function() return "" end,
+        loadstring = load_func,
+        
+        -- Launcher Support APIs
+        request = g.request or g.http_request or (http and http.request) or function() warn("Executor does not support request API") end,
+        identifyexecutor = g.identifyexecutor or g.getexecutorname or function() return "Unknown Executor" end,
+        
+        -- File System APIs
+        writefile = g.writefile or function() warn("Executor does not support writefile") end,
+        readfile = g.readfile or function() return "" end,
+        isfile = g.isfile or function() return false end,
+        listfiles = g.listfiles or function() return {} end,
+        makefolder = g.makefolder or function() end,
+        
+        -- Interaction APIs
+        fireclickdetector = g.fireclickdetector or function() end,
+        fireproximityprompt = g.fireproximityprompt or function() end,
+        firetouchinterest = g.firetouchinterest or function() end,
+        
+        -- Clipboard APIs
+        setclipboard = g.setclipboard or g.toclipboard or function() end,
+        getclipboard = g.getclipboard or function() return "" end,
+        
+        -- Asset APIs
+        getcustomasset = g.getcustomasset or function() return "" end
     }
     return e
 end

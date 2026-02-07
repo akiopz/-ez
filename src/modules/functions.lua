@@ -1,17 +1,18 @@
----@diagnostic disable: undefined-global, undefined-field, deprecated
-local getgenv = getgenv or function() return _G end
-local game = game or getgenv().game
-local workspace = workspace or getgenv().workspace
-local task = task or getgenv().task
-local Vector3 = Vector3 or getgenv().Vector3
-local Ray = Ray or getgenv().Ray
-local math = math or getgenv().math
-local tick = tick or getgenv().tick or os.time
-local pairs = pairs or getgenv().pairs
-local ipairs = ipairs or getgenv().ipairs
-local table = table or getgenv().table
-local string = string or getgenv().string
-local pcall = pcall or getgenv().pcall
+---@diagnostic disable: undefined-global, undefined-field, deprecated, inject-field
+local getgenv = (getgenv or function() return _G end)
+local env_global = getgenv()
+local game = game or env_global.game
+local workspace = workspace or env_global.workspace
+local task = task or env_global.task
+local Vector3 = Vector3 or env_global.Vector3
+local Ray = Ray or env_global.Ray
+local math = math or env_global.math
+local tick = tick or env_global.tick or os.time
+local pairs = pairs or env_global.pairs
+local ipairs = ipairs or env_global.ipairs
+local table = table or env_global.table
+local string = string or env_global.string
+local pcall = pcall or env_global.pcall
 
 local functionsModule = {}
 
@@ -27,14 +28,14 @@ function functionsModule.Init(env)
     local Notify = env.Notify
 
     CatFunctions.ToggleKillAura = function(state)
-        _G.KillAura = state
-        if not _G.KillAura then return end
+        env_global.KillAura = state
+        if not env_global.KillAura then return end
         task.spawn(function()
-            while _G.KillAura and task.wait() do
-                local target = _G.KillAuraTarget or nil
+            while env_global.KillAura and task.wait() do
+                local target = env_global.KillAuraTarget or nil
                 if target and target:FindFirstChild("Humanoid") and target.Humanoid.Health > 0 then
                     local hrp = target:FindFirstChild("HumanoidRootPart")
-                    if hrp and (lplr.Character.HumanoidRootPart.Position - hrp.Position).Magnitude > (_G.KillAuraRange or 18) then
+                    if hrp and (lplr.Character.HumanoidRootPart.Position - hrp.Position).Magnitude > (env_global.KillAuraRange or 18) then
                         target = nil
                     end
                 else
@@ -42,7 +43,7 @@ function functionsModule.Init(env)
                 end
 
                 if not target then
-                    local dist = _G.KillAuraRange or 18
+                    local dist = env_global.KillAuraRange or 18
                     for _, v in pairs(Players:GetPlayers()) do
                         if v ~= lplr and v.Team ~= lplr.Team and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
                             local d = (lplr.Character.HumanoidRootPart.Position - v.Character.HumanoidRootPart.Position).Magnitude
@@ -68,10 +69,10 @@ function functionsModule.Init(env)
     end
 
     CatFunctions.ToggleScaffold = function(state)
-        _G.Scaffold = state
-        if not _G.Scaffold then return end
+        env_global.Scaffold = state
+        if not env_global.Scaffold then return end
         task.spawn(function()
-            while _G.Scaffold and task.wait() do
+            while env_global.Scaffold and task.wait() do
                 if lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart") then
                     local hrp = lplr.Character.HumanoidRootPart
                     local pos = hrp.Position + (hrp.CFrame.LookVector * 1) - Vector3_new(0, 3.5, 0)
@@ -86,39 +87,39 @@ function functionsModule.Init(env)
     end
 
     CatFunctions.ToggleInfiniteJump = function(state)
-        _G.InfiniteJump = state
+        env_global.InfiniteJump = state
         game:GetService("UserInputService").JumpRequest:Connect(function()
-            if _G.InfiniteJump and lplr.Character and lplr.Character:FindFirstChildOfClass("Humanoid") then
+            if env_global.InfiniteJump and lplr.Character and lplr.Character:FindFirstChildOfClass("Humanoid") then
                 lplr.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
             end
         end)
     end
 
     CatFunctions.ToggleNoSlowDown = function(state)
-        _G.NoSlowDown = state
+        env_global.NoSlowDown = state
         task.spawn(function()
-            while _G.NoSlowDown and task.wait() do
+            while env_global.NoSlowDown and task.wait() do
                 if lplr.Character and lplr.Character:FindFirstChildOfClass("Humanoid") then
-                    lplr.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = _G.SpeedValue or 23
+                    lplr.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = env_global.SpeedValue or 23
                 end
             end
         end)
     end
 
     CatFunctions.ToggleReach = function(state)
-        _G.Reach = state
-        if not _G.Reach then
-            _G.KillAuraRange = 18
+        env_global.Reach = state
+        if not env_global.Reach then
+            env_global.KillAuraRange = 18
             return
         end
-        _G.KillAuraRange = 25
+        env_global.KillAuraRange = 25
     end
 
     CatFunctions.ToggleAutoClicker = function(state)
-        _G.AutoClicker = state
-        if not _G.AutoClicker then return end
+        env_global.AutoClicker = state
+        if not env_global.AutoClicker then return end
         task.spawn(function()
-            while _G.AutoClicker and task.wait(1 / (_G.KillAuraCPS or 10)) do
+            while env_global.AutoClicker and task.wait(1 / (env_global.KillAuraCPS or 10)) do
                 local char = lplr.Character
                 local tool = char and char:FindFirstChildOfClass("Tool")
                 if tool then
@@ -129,8 +130,8 @@ function functionsModule.Init(env)
     end
 
     CatFunctions.ToggleLongJump = function(state)
-        _G.LongJump = state
-        if not _G.LongJump then return end
+        env_global.LongJump = state
+        if not env_global.LongJump then return end
         task.spawn(function()
             if lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart") then
                 local hrp = lplr.Character.HumanoidRootPart
@@ -138,16 +139,16 @@ function functionsModule.Init(env)
                 hum:ChangeState("Jumping")
                 hrp.Velocity = hrp.Velocity + (hrp.CFrame.LookVector * 50) + Vector3_new(0, 30, 0)
                 task.wait(0.5)
-                _G.LongJump = false
+                env_global.LongJump = false
             end
         end)
     end
 
     CatFunctions.ToggleAutoBridge = function(state)
-        _G.AutoBridge = state
-        if not _G.AutoBridge then return end
+        env_global.AutoBridge = state
+        if not env_global.AutoBridge then return end
         task.spawn(function()
-            while _G.AutoBridge and task.wait(0.1) do
+            while env_global.AutoBridge and task.wait(0.1) do
                 if lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart") then
                     local hrp = lplr.Character.HumanoidRootPart
                     local pos = hrp.Position + (hrp.CFrame.LookVector * 3) - Vector3_new(0, 4, 0)
@@ -161,10 +162,10 @@ function functionsModule.Init(env)
     end
 
     CatFunctions.ToggleAutoResourceFarm = function(state)
-        _G.AutoResourceFarm = state
-        if not _G.AutoResourceFarm then return end
+        env_global.AutoResourceFarm = state
+        if not env_global.AutoResourceFarm then return end
         task.spawn(function()
-            while _G.AutoResourceFarm and task.wait(1) do
+            while env_global.AutoResourceFarm and task.wait(1) do
                 local state = CatFunctions.GetBattlefieldState()
                 if #state.resources > 0 then
                     local target = state.resources[1]
@@ -180,13 +181,13 @@ function functionsModule.Init(env)
     end
 
     CatFunctions.ToggleDamageIndicator = function(state)
-        _G.DamageIndicator = state
+        env_global.DamageIndicator = state
     end
 
     CatFunctions.ToggleSpider = function(state)
-        _G.Spider = state
+        env_global.Spider = state
         task.spawn(function()
-            while _G.Spider and task.wait() do
+            while env_global.Spider and task.wait() do
                 if lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart") then
                     local hrp = lplr.Character.HumanoidRootPart
                     local ray = Ray.new(hrp.Position, hrp.CFrame.LookVector * 2)
@@ -200,10 +201,10 @@ function functionsModule.Init(env)
     end
 
     CatFunctions.ToggleNoFall = function(state)
-        _G.NoFall = state
-        if not _G.NoFall then return end
+        env_global.NoFall = state
+        if not env_global.NoFall then return end
         task.spawn(function()
-            while _G.NoFall and task.wait(0.5) do
+            while env_global.NoFall and task.wait(0.5) do
                 local remote = ReplicatedStorage:FindFirstChild("FallDamage", true) or 
                                ReplicatedStorage:FindFirstChild("GroundHit", true)
                 if remote then
@@ -214,14 +215,14 @@ function functionsModule.Init(env)
     end
 
     CatFunctions.ToggleVelocity = function(state)
-        _G.Velocity = state
-        if not _G.Velocity then return end
+        env_global.Velocity = state
+        if not env_global.Velocity then return end
         task.spawn(function()
-            while _G.Velocity and task.wait() do
+            while env_global.Velocity and task.wait() do
                 if lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart") then
                     local hrp = lplr.Character.HumanoidRootPart
-                    local horizontal = _G.VelocityHorizontal or 15
-                    local vertical = _G.VelocityVertical or 100
+                    local horizontal = env_global.VelocityHorizontal or 15
+                    local vertical = env_global.VelocityVertical or 100
                     hrp.Velocity = Vector3_new(hrp.Velocity.X * (horizontal / 100), hrp.Velocity.Y * (vertical / 100), hrp.Velocity.Z * (horizontal / 100))
                 end
             end
@@ -229,16 +230,16 @@ function functionsModule.Init(env)
     end
 
     CatFunctions.ToggleSpeed = function(state)
-        _G.Speed = state
-        if not _G.Speed then return end
+        env_global.Speed = state
+        if not env_global.Speed then return end
         task.spawn(function()
             local count = 0
-            while _G.Speed and task.wait() do
+            while env_global.Speed and task.wait() do
                 if lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart") then
                     local hrp = lplr.Character.HumanoidRootPart
                     count = count + 1
                     if count % 3 == 0 then
-                        hrp.CFrame = hrp.CFrame + (hrp.CFrame.LookVector * (_G.SpeedValue or 0.5))
+                        hrp.CFrame = hrp.CFrame + (hrp.CFrame.LookVector * (env_global.SpeedValue or 0.5))
                     end
                 end
             end
@@ -246,10 +247,10 @@ function functionsModule.Init(env)
     end
 
     CatFunctions.ToggleFly = function(state)
-        _G.Fly = state
-        if not _G.Fly then return end
+        env_global.Fly = state
+        if not env_global.Fly then return end
         task.spawn(function()
-            while _G.Fly and task.wait() do
+            while env_global.Fly and task.wait() do
                 if lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart") then
                     local hrp = lplr.Character.HumanoidRootPart
                     local vel = hrp.Velocity
@@ -260,10 +261,10 @@ function functionsModule.Init(env)
     end
 
     CatFunctions.ToggleAutoConsume = function(state)
-        _G.AutoConsume = state
-        if not _G.AutoConsume then return end
+        env_global.AutoConsume = state
+        if not env_global.AutoConsume then return end
         task.spawn(function()
-            while _G.AutoConsume and task.wait(1) do
+            while env_global.AutoConsume and task.wait(1) do
                 if lplr.Character and lplr.Character:FindFirstChildOfClass("Humanoid") then
                     local hum = lplr.Character:FindFirstChildOfClass("Humanoid")
                     if hum.Health < hum.MaxHealth * 0.5 then
@@ -279,10 +280,10 @@ function functionsModule.Init(env)
     end
 
     CatFunctions.ToggleBedNuker = function(state)
-        _G.BedNuker = state
-        if not _G.BedNuker then return end
+        env_global.BedNuker = state
+        if not env_global.BedNuker then return end
         task.spawn(function()
-            while _G.BedNuker and task.wait(0.2) do
+            while env_global.BedNuker and task.wait(0.2) do
                 local battlefield = CatFunctions.GetBattlefieldState()
                 for _, bed in ipairs(battlefield.beds) do
                     if bed.dist < 25 then
@@ -298,10 +299,10 @@ function functionsModule.Init(env)
     end
 
     CatFunctions.ToggleAutoBalloon = function(state)
-        _G.AutoBalloon = state
-        if not _G.AutoBalloon then return end
+        env_global.AutoBalloon = state
+        if not env_global.AutoBalloon then return end
         task.spawn(function()
-            while _G.AutoBalloon and task.wait(0.5) do
+            while env_global.AutoBalloon and task.wait(0.5) do
                 local char = lplr.Character
                 local hrp = char and char:FindFirstChild("HumanoidRootPart")
                 if hrp and hrp.Position.Y < -50 then
@@ -321,10 +322,10 @@ function functionsModule.Init(env)
     end
 
     CatFunctions.ToggleNuker = function(state)
-        _G.Nuker = state
-        if not _G.Nuker then return end
+        env_global.Nuker = state
+        if not env_global.Nuker then return end
         task.spawn(function()
-            while _G.Nuker and task.wait(0.1) do
+            while env_global.Nuker and task.wait(0.1) do
                 local hrp = lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart")
                 if hrp then
                     for _, v in pairs(workspace:GetPartBoundsInRadius(hrp.Position, 15)) do

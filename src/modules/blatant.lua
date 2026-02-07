@@ -1,19 +1,20 @@
----@diagnostic disable: undefined-global, undefined-field, deprecated
-local getgenv = getgenv or function() return _G end
-local game = game or getgenv().game
-local workspace = workspace or getgenv().workspace
-local task = task or getgenv().task
-local Vector3 = Vector3 or getgenv().Vector3
-local CFrame = CFrame or getgenv().CFrame
-local math = math or getgenv().math
-local table = table or getgenv().table
-local pairs = pairs or getgenv().pairs
-local ipairs = ipairs or getgenv().ipairs
-local pcall = pcall or getgenv().pcall
-local Instance = Instance or getgenv().Instance
-local Enum = Enum or getgenv().Enum
-local Color3 = Color3 or getgenv().Color3
-local UDim2 = UDim2 or getgenv().UDim2
+---@diagnostic disable: undefined-global, undefined-field, deprecated, inject-field
+local getgenv = (getgenv or function() return _G end)
+local env_global = getgenv()
+local game = game or env_global.game
+local workspace = workspace or env_global.workspace
+local task = task or env_global.task
+local Vector3 = Vector3 or env_global.Vector3
+local CFrame = CFrame or env_global.CFrame
+local math = math or env_global.math
+local table = table or env_global.table
+local pairs = pairs or env_global.pairs
+local ipairs = ipairs or env_global.ipairs
+local pcall = pcall or env_global.pcall
+local Instance = Instance or env_global.Instance
+local Enum = Enum or env_global.Enum
+local Color3 = Color3 or env_global.Color3
+local UDim2 = UDim2 or env_global.UDim2
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -27,15 +28,15 @@ local BlatantModule = {}
 function BlatantModule.Init(Gui, Notify)
     return {
         ToggleVoidAll = function(state)
-            _G.VoidAll = state
-            if not _G.VoidAll then return end
+            env_global.VoidAll = state
+            if not env_global.VoidAll then return end
             
             local char = lp.Character
             local hrp = char and char:FindFirstChild("HumanoidRootPart")
             if not hrp then return end
             
             local function Fling(target)
-                if not _G.VoidAll then return end
+                if not env_global.VoidAll then return end
                 local hrp = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
                 if hrp and target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") and target.Team ~= lp.Team then
                     local thrp = target.Character.HumanoidRootPart
@@ -53,9 +54,9 @@ function BlatantModule.Init(Gui, Notify)
             end
 
             task_spawn(function()
-                while _G.VoidAll do
+                while env_global.VoidAll do
                     for _, player in ipairs(Players:GetPlayers()) do
-                        if not _G.VoidAll then break end
+                        if not env_global.VoidAll then break end
                         if player ~= lp then
                             Fling(player)
                             task_wait(0.2)
@@ -67,10 +68,10 @@ function BlatantModule.Init(Gui, Notify)
         end,
 
         ToggleFastBreak = function(state)
-            _G.FastBreak = state
-            if not _G.FastBreak then return end
+            env_global.FastBreak = state
+            if not env_global.FastBreak then return end
             task_spawn(function()
-                while _G.FastBreak and task_wait(0.01) do
+                while env_global.FastBreak and task_wait(0.01) do
                     local char = lp.Character
                     local tool = char and char:FindFirstChildOfClass("Tool")
                     if tool and tool:FindFirstChild("Handle") then
@@ -88,10 +89,10 @@ function BlatantModule.Init(Gui, Notify)
         end,
 
         ToggleChestStealer = function(state)
-            _G.ChestStealer = state
-            if not _G.ChestStealer then return end
+            env_global.ChestStealer = state
+            if not env_global.ChestStealer then return end
             task_spawn(function()
-                while _G.ChestStealer and task_wait(0.5) do
+                while env_global.ChestStealer and task_wait(0.5) do
                     local char = lp.Character
                     local hrp = char and char:FindFirstChild("HumanoidRootPart")
                     if hrp then
@@ -103,7 +104,7 @@ function BlatantModule.Init(Gui, Notify)
                         end
 
                         for _, chest in ipairs(foundChests) do
-                            if not _G.ChestStealer then break end
+                            if not env_global.ChestStealer then break end
                             
                             local remote = ReplicatedStorage:FindFirstChild("ChestCollectItem", true) or 
                                            ReplicatedStorage:FindFirstChild("TakeItemFromChest", true)
@@ -125,10 +126,10 @@ function BlatantModule.Init(Gui, Notify)
         end,
 
         ToggleProjectileAura = function(state)
-            _G.ProjectileAura = state
-            if not _G.ProjectileAura then return end
+            env_global.ProjectileAura = state
+            if not env_global.ProjectileAura then return end
             task_spawn(function()
-                while _G.ProjectileAura and task_wait(0.1) do
+                while env_global.ProjectileAura and task_wait(0.1) do
                     local char = lp.Character
                     local tool = char and char:FindFirstChildOfClass("Tool")
                     if tool and (tool.Name:lower():find("bow") or tool.Name:lower():find("fireball") or tool.Name:lower():find("snowball")) then
@@ -153,16 +154,16 @@ function BlatantModule.Init(Gui, Notify)
         end,
 
         ToggleAutoBuy = function(state)
-            _G.AutoBuy = state
-            if not _G.AutoBuy then return end
+            env_global.AutoBuy = state
+            if not env_global.AutoBuy then return end
             task_spawn(function()
                 local itemsToBuy = {"item_wool", "sword_iron", "armor_iron", "armor_diamond"}
-                while _G.AutoBuy and task_wait(2) do
+                while env_global.AutoBuy and task_wait(2) do
                     local remote = ReplicatedStorage:FindFirstChild("ShopBuyItem", true) or 
                                    ReplicatedStorage:FindFirstChild("BuyItem", true)
                     if remote then
                         for _, item in ipairs(itemsToBuy) do
-                            if not _G.AutoBuy then break end
+                            if not env_global.AutoBuy then break end
                             remote:FireServer({["item"] = item})
                         end
                     end
@@ -171,10 +172,10 @@ function BlatantModule.Init(Gui, Notify)
         end,
 
         ToggleAutoArmor = function(state)
-            _G.AutoArmor = state
-            if not _G.AutoArmor then return end
+            env_global.AutoArmor = state
+            if not env_global.AutoArmor then return end
             task_spawn(function()
-                while _G.AutoArmor and task_wait(1) do
+                while env_global.AutoArmor and task_wait(1) do
                     local char = lp.Character
                     if char then
                         local remote = ReplicatedStorage:FindFirstChild("EquipArmor", true) or 
@@ -188,8 +189,8 @@ function BlatantModule.Init(Gui, Notify)
         end,
 
         ToggleAutoBuyPro = function(state)
-            _G.AutoBuyPro = state
-            if not _G.AutoBuyPro then return end
+            env_global.AutoBuyPro = state
+            if not env_global.AutoBuyPro then return end
             task_spawn(function()
                 local priority = {
                     {id = "emerald_sword", cost = 20, currency = "emerald"},
@@ -204,12 +205,12 @@ function BlatantModule.Init(Gui, Notify)
                     {id = "wool_white", cost = 16, currency = "iron"}
                 }
                 
-                while _G.AutoBuyPro and task_wait(3) do
+                while env_global.AutoBuyPro and task_wait(3) do
                     local remote = ReplicatedStorage:FindFirstChild("ShopBuyItem", true) or 
                                    ReplicatedStorage:FindFirstChild("BuyItem", true)
                     if remote then
                         for _, item in ipairs(priority) do
-                            if not _G.AutoBuyPro then break end
+                            if not env_global.AutoBuyPro then break end
                             remote:FireServer({["item"] = item.id})
                         end
                     end
@@ -218,8 +219,8 @@ function BlatantModule.Init(Gui, Notify)
         end,
 
         ToggleAutoToxic = function(state)
-            _G.AutoToxic = state
-            if not _G.AutoToxic then return end
+            env_global.AutoToxic = state
+            if not env_global.AutoToxic then return end
             local lastHealth = {}
             task_spawn(function()
                 local messages = {
@@ -231,7 +232,7 @@ function BlatantModule.Init(Gui, Notify)
                     "Why so bad?",
                     "Better luck next time!"
                 }
-                while _G.AutoToxic and task_wait(0.5) do
+                while env_global.AutoToxic and task_wait(0.5) do
                     for _, p in ipairs(Players:GetPlayers()) do
                         if p ~= lp and p.Team ~= lp.Team and p.Character and p.Character:FindFirstChild("Humanoid") then
                             local hum = p.Character.Humanoid

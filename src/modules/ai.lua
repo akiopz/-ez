@@ -1,16 +1,17 @@
----@diagnostic disable: undefined-global, undefined-field, deprecated
-local getgenv = getgenv or function() return _G end
-local game = game or getgenv().game
-local workspace = workspace or getgenv().workspace
-local task = task or getgenv().task
-local Vector3 = Vector3 or getgenv().Vector3
-local CFrame = CFrame or getgenv().CFrame
-local Ray = Ray or getgenv().Ray
-local Enum = Enum or getgenv().Enum
-local math = math or getgenv().math
-local ipairs = ipairs or getgenv().ipairs
-local pairs = pairs or getgenv().pairs
-local pcall = pcall or getgenv().pcall
+---@diagnostic disable: undefined-global, undefined-field, deprecated, inject-field
+local getgenv = (getgenv or function() return _G end)
+local env_global = getgenv()
+local game = game or env_global.game
+local workspace = workspace or env_global.workspace
+local task = task or env_global.task
+local Vector3 = Vector3 or env_global.Vector3
+local CFrame = CFrame or env_global.CFrame
+local Ray = Ray or env_global.Ray
+local Enum = Enum or env_global.Enum
+local math = math or env_global.math
+local ipairs = ipairs or env_global.ipairs
+local pairs = pairs or env_global.pairs
+local pcall = pcall or env_global.pcall
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -25,16 +26,16 @@ local AIModule = {}
 
 function AIModule.Init(CatFunctions, Blatant)
     local function ToggleGodMode(state)
-        _G.GodModeAI = state
-        if _G.GodModeAI then
-            _G.KillAuraRange = 25
-            _G.KillAuraMaxTargets = 5
+        env_global.GodModeAI = state
+        if env_global.GodModeAI then
+            env_global.KillAuraRange = 25
+            env_global.KillAuraMaxTargets = 5
             CatFunctions.ToggleKillAura(true)
             CatFunctions.ToggleNoFall(true)
             CatFunctions.ToggleReach(true)
             CatFunctions.ToggleAutoToolFastBreak(true)
-            _G.AutoBuyPro = true
-            _G.AutoArmor = true
+            env_global.AutoBuyPro = true
+            env_global.AutoArmor = true
             Blatant.ToggleAutoBuyPro(true)
             Blatant.ToggleAutoArmor(true)
             
@@ -42,7 +43,7 @@ function AIModule.Init(CatFunctions, Blatant)
             local lastMoveTime = tick()
 
             task_spawn(function()
-                while _G.GodModeAI and task_wait(0.02) do
+                while env_global.GodModeAI and task_wait(0.02) do
                     local char = lp.Character
                     local hrp = char and char:FindFirstChild("HumanoidRootPart")
                     local hum = char and char:FindFirstChildOfClass("Humanoid")
@@ -50,13 +51,9 @@ function AIModule.Init(CatFunctions, Blatant)
                         if hum.WalkSpeed < 20 then hum.WalkSpeed = 20 end
                         hum.AutoRotate = true
                         
-                        -- Stuck Detection
-                        if (hrp.Position - lastPos).Magnitude < 0.5 then
-                            if tick() - lastMoveTime > 2 then
+                        if (hrp.Position - lastPos).Magnitude < 0.1 then
+                            if tick() - lastMoveTime > 3 then
                                 hum.Jump = true
-                                local randomDir = Vector3_new(math.random(-1, 1), 0, math.random(-1, 1)).Unit
-                                hrp.Velocity = hrp.Velocity + (randomDir * 10)
-                                hum:Move(randomDir, true)
                                 lastMoveTime = tick()
                             end
                         else
@@ -64,51 +61,31 @@ function AIModule.Init(CatFunctions, Blatant)
                             lastMoveTime = tick()
                         end
 
-                        local battlefield = CatFunctions.GetBattlefieldState()
+                        local state = CatFunctions.GetBattlefieldState()
                         local target = nil
                         
-                        -- DEBUG
-                        -- print("AI Battlefield state: targets=" .. #battlefield.targets .. " resources=" .. #battlefield.resources .. " beds=" .. #battlefield.beds)
-                        local minDist = math.huge
-                        
-                        if battlefield.isBeingTargeted then
-                            hrp.Velocity = hrp.Velocity + Vector3_new(math.random(-2, 2), 0, math.random(-2, 2))
+                        if state.nearestThreat then
+                            target = state.nearestThreat
+                        elseif #state.beds > 0 then
+                            target = state.beds[1]
+                        elseif #state.resources > 0 then
+                            target = state.resources[1]
                         end
 
-                        if battlefield.nearestThreat and battlefield.nearestThreat.dist < 15 then
-                            target = {part = battlefield.nearestThreat.hrp, type = "PLAYER"}
-                        else
-                            if #battlefield.beds > 0 then
-                                for _, bed in ipairs(battlefield.beds) do
-                                    local team = bed.part:GetAttribute("Team")
-                                    if team ~= lp.Team then
-                                        target = {part = bed.part, type = "BED"}
-                                        break
-                                    end
-                                end
-                            end
-                            if not target and battlefield.nearestThreat then
-                                target = {part = battlefield.nearestThreat.hrp, type = "PLAYER"}
-                            end
-                            if not target and #battlefield.resources > 0 then
-                                target = {part = battlefield.resources[1].part, type = "RESOURCE"}
-                            end
-                        end
-                        
                         if target then
                             local targetPos = target.part.Position
                             local dist = (hrp.Position - targetPos).Magnitude
-                            
+
                             if target.type == "BED" and dist > 15 then
-                                if not _G.Fly then CatFunctions.ToggleFly(true) end
-                            elseif _G.Fly and dist < 5 then
+                                if not env_global.Fly then CatFunctions.ToggleFly(true) end
+                            elseif env_global.Fly and dist < 5 then
                                 CatFunctions.ToggleFly(false)
                             end
 
                             if dist > 4 then
                                 local moveDir = (targetPos - hrp.Position).Unit
                                 
-                                if _G.Fly then
+                                if env_global.Fly then
                                     hum:Move(moveDir, true)
                                     hum:MoveTo(targetPos)
                                 else
@@ -134,103 +111,42 @@ function AIModule.Init(CatFunctions, Blatant)
                                 end
                                 
                                 local ray = Ray.new(hrp.Position, moveDir * 3)
-                                local hit = workspace:FindPartOnRayWithIgnoreList(ray, {char})
-                                if hit and hit.CanCollide then
-                                    hum.Jump = true
-                                end
-                            else
-                                if hum then hum:Move(Vector3_new(0,0,0), true) end
+                                local hit = workspace:FindPartOnRay(ray, char)
+                                if hit then hum.Jump = true end
                             end
-
-                            if target.type == "PLAYER" and _G.KillAura then
-                                hrp.CFrame = CFrame_new(hrp.Position, Vector3_new(target.part.Position.X, hrp.Position.Y, target.part.Position.Z))
-                                _G.KillAuraTarget = target.part.Parent
+                            
+                            if target.type == "PLAYER" then
+                                env_global.KillAuraTarget = target.part.Parent
                             end
-                        else
-                            if hum then hum:Move(Vector3_new(0,0,0), true) end
                         end
                     end
                 end
             end)
+        else
+            CatFunctions.ToggleKillAura(false)
+            CatFunctions.ToggleFly(false)
         end
     end
 
     local function ToggleAutoPlay(state)
-        _G.AI_Enabled = state
-        if _G.AI_Enabled then
-            _G.KillAuraRange = 22
-            _G.KillAuraMaxTargets = 3
-            CatFunctions.ToggleKillAura(true)
-            CatFunctions.ToggleNoFall(true)
-            CatFunctions.ToggleAutoToolFastBreak(true)
-            CatFunctions.ToggleSpeed(true)
-            _G.AutoBuyPro = true
-            _G.AutoArmor = true
-            Blatant.ToggleAutoBuyPro(true)
-            Blatant.ToggleAutoArmor(true)
-            
-            local lastPos = Vector3_new(0,0,0)
-            local lastMoveTime = tick()
-
+        env_global.AI_Enabled = state
+        if env_global.AI_Enabled then
             task_spawn(function()
-                while _G.AI_Enabled and task_wait(0.1) do
+                while env_global.AI_Enabled and task_wait(0.5) do
                     local char = lp.Character
                     local hrp = char and char:FindFirstChild("HumanoidRootPart")
                     local hum = char and char:FindFirstChildOfClass("Humanoid")
+                    
                     if hrp and hum and hum.Health > 0 then
-                        if hum.WalkSpeed < 20 then hum.WalkSpeed = 20 end
-                        hum.AutoRotate = true
-
-                        -- Stuck Detection
-                        if (hrp.Position - lastPos).Magnitude < 0.5 then
-                            if tick() - lastMoveTime > 2 then
-                                hum.Jump = true
-                                local randomDir = Vector3_new(math.random(-1, 1), 0, math.random(-1, 1)).Unit
-                                hrp.Velocity = hrp.Velocity + (randomDir * 10)
-                                hum:Move(randomDir, true)
-                                lastMoveTime = tick()
-                            end
-                        else
-                            lastPos = hrp.Position
-                            lastMoveTime = tick()
-                        end
-
-                        local battlefield = CatFunctions.GetBattlefieldState()
+                        local state = CatFunctions.GetBattlefieldState()
                         local target = nil
-                        
-                        local nearResource = nil
-                        for _, res in ipairs(battlefield.resources) do
-                            if res.dist < 15 then
-                                nearResource = res
-                                break
-                            end
-                        end
 
-                        if nearResource then
-                             target = {part = nearResource.part, type = "RESOURCE"}
-                             if nearResource.dist < 3 then
-                                 hum:Move(Vector3_new(0,0,0), true)
-                             end
-                        elseif battlefield.nearestThreat and battlefield.nearestThreat.dist < 60 then
-                            target = {part = battlefield.nearestThreat.hrp, type = "PLAYER"}
-                        elseif #battlefield.resources > 0 then
-                            local bestRes = battlefield.resources[1]
-                            for _, res in ipairs(battlefield.resources) do
-                                local name = res.name:lower()
-                                if name:find("emerald") or name:find("diamond") then
-                                    bestRes = res
-                                    break
-                                end
-                            end
-                            target = {part = bestRes.part, type = "RESOURCE"}
-                        elseif #battlefield.beds > 0 then
-                            for _, bed in ipairs(battlefield.beds) do
-                                local team = bed.part:GetAttribute("Team")
-                                if team ~= lp.Team then
-                                    target = {part = bed.part, type = "BED"}
-                                    break
-                                end
-                            end
+                        if state.nearestThreat then
+                            target = state.nearestThreat
+                        elseif #state.beds > 0 then
+                            target = state.beds[1]
+                        elseif #state.resources > 0 then
+                            target = state.resources[1]
                         end
 
                         if target then
@@ -238,12 +154,12 @@ function AIModule.Init(CatFunctions, Blatant)
                             local dist = (hrp.Position - targetPos).Magnitude
 
                             if target.type == "BED" and dist > 15 then
-                                if not _G.Fly then CatFunctions.ToggleFly(true) end
-                            elseif _G.Fly and dist < 5 then
+                                if not env_global.Fly then CatFunctions.ToggleFly(true) end
+                            elseif env_global.Fly and dist < 5 then
                                 CatFunctions.ToggleFly(false)
                             end
 
-                            if _G.Fly then
+                            if env_global.Fly then
                                 local moveDir = (targetPos - hrp.Position).Unit
                                 hum:Move(moveDir, true)
                                 hum:MoveTo(targetPos)
@@ -268,7 +184,8 @@ function AIModule.Init(CatFunctions, Blatant)
 
                                         if target.type == "PLAYER" then
                                             hrp.CFrame = CFrame_new(hrp.Position, Vector3_new(target.part.Position.X, hrp.Position.Y, target.part.Position.Z))
-                                            _G.KillAuraTarget = target.part.Parent
+                                            env_global.KillAuraTarget = target.part.Parent
+                                        
                                         end
                                     end
                                 else
@@ -278,26 +195,23 @@ function AIModule.Init(CatFunctions, Blatant)
                                     hum:MoveTo(targetPos)
                                 end
                             end
-
-                            if hrp.Position.Y < 0 then
-                                local spawnPos = lp.RespawnLocation and lp.RespawnLocation.Position or Vector3_new(0, 100, 0)
-                                if (hrp.Position - spawnPos).Magnitude > 50 then
-                                    if CatFunctions.ToggleFly then
-                                        CatFunctions.ToggleFly(true)
-                                        hrp.Velocity = Vector3_new(0, 50, 0)
-                                    end
-                                end
-                            end
                         end
                     end
                 end
             end)
+        else
+            CatFunctions.ToggleFly(false)
+            CatFunctions.ToggleKillAura(false)
         end
     end
 
     return {
         ToggleGodMode = ToggleGodMode,
-        ToggleAutoPlay = ToggleAutoPlay
+        ToggleAutoPlay = ToggleAutoPlay,
+        Stop = function()
+            ToggleGodMode(false)
+            ToggleAutoPlay(false)
+        end
     }
 end
 
