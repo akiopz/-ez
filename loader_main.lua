@@ -14,7 +14,7 @@ env_global.ProjectileAura = env_global.ProjectileAura or false
 env_global.VelocityHorizontal = env_global.VelocityHorizontal or 15
 env_global.VelocityVertical = env_global.VelocityVertical or 100
 
-print("Halol V4.1 開始加載 (強制刷新模式)...")
+print("Halol V4.2 開始加載 (修復版本)...")
 
 env_global.AI_Enabled = env_global.AI_Enabled or false
 env_global.GodModeAI = env_global.GodModeAI or false
