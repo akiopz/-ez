@@ -37,7 +37,7 @@ function GuiUtils.Init(Gui)
             TextSize = 13
         })
         
-        ApplyProperties(TabStroke, {
+        Gui.ApplyProperties(TabStroke, {
             Color = Color3_fromRGB(40, 40, 60),
             Thickness = 1,
             Transparency = 0.5,
@@ -149,7 +149,7 @@ function GuiUtils.Init(Gui)
             BorderSizePixel = 0
         })
         
-        ApplyProperties(BStroke, {
+        Gui.ApplyProperties(BStroke, {
             Color = Color3_fromRGB(50, 50, 80),
             Thickness = 1,
             ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
@@ -160,7 +160,7 @@ function GuiUtils.Init(Gui)
         BCorner.Parent = Button
         
         -- 狀態指示燈
-        ApplyProperties(StatusLight, {
+        Gui.ApplyProperties(StatusLight, {
             Name = "StatusLight",
             Parent = Button,
             BackgroundColor3 = Color3_fromRGB(60, 60, 80),
