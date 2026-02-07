@@ -64,21 +64,24 @@ function GuiModule.CreateMainGui()
 
     ApplyProperties(ScreenGui, {
         Name = "HalolV4",
-        Parent = (gethui and gethui()) or CoreGui,
+        Parent = (getgenv().gethui and getgenv().gethui()) or game:GetService("CoreGui"),
         ResetOnSpawn = false,
+        IgnoreGuiInset = true,
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
         DisplayOrder = 9999
     })
 
     ApplyProperties(MainFrame, {
         Name = "MainFrame",
         Parent = ScreenGui,
-        BackgroundColor3 = Color3_fromRGB(10, 10, 15), -- 更深的科幻藍黑
+        BackgroundColor3 = Color3_fromRGB(10, 10, 20),
         Position = UDim2_new(0.5, -300, 0.5, -200),
         Size = UDim2_new(0, 600, 0, 400),
-        ClipsDescendants = true,
+        ClipsDescendants = false, -- 改為 false 以允許陰影/發光顯示
         Active = true,
+        Selectable = true,
         Draggable = true,
-        BackgroundTransparency = 0.05
+        ZIndex = 5
     })
 
     -- 背景網格裝飾
@@ -158,7 +161,7 @@ function GuiModule.CreateMainGui()
         Position = UDim2_new(0, 105, 0, 22),
         Size = UDim2_new(0, 100, 0, 20),
         Font = Enum.Font.Code, -- 改用程式碼字體更有科幻感
-        Text = "V4.0 // SYSTEM_ACTIVE",
+        Text = "V4.6 // SYSTEM_ACTIVE",
         TextColor3 = Color3_fromRGB(0, 255, 255),
         TextSize = 10,
         TextXAlignment = Enum.TextXAlignment.Left,

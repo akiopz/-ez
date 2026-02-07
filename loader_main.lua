@@ -14,7 +14,7 @@ env_global.ProjectileAura = env_global.ProjectileAura or false
 env_global.VelocityHorizontal = env_global.VelocityHorizontal or 15
 env_global.VelocityVertical = env_global.VelocityVertical or 100
 
-print("Halol V4.5 開始加載 (功能擴展版本)...")
+print("Halol V4.6 開始加載 (穩定交互版本)...")
 
 -- 增加一個隨機數來徹底繞過快取
 local sessionID = tostring(math.random(100000, 999999))
@@ -36,7 +36,7 @@ local function Notify(title, text, duration)
     end)
 end
 
-Notify("Halol V4.5", "正在從雲端獲取最新組件...", 3)
+Notify("Halol V4.6", "正在從雲端獲取最新組件 (強制刷新)...", 3)
 
 local success, err = pcall(function()
     local HOSTS = {
@@ -48,7 +48,8 @@ local success, err = pcall(function()
         print("正在獲取模組: " .. path)
         local lastErr
         for _, base in ipairs(HOSTS) do
-            local url = base .. path .. "?v=" .. sessionID .. "&t=" .. os.time()
+            -- 使用隨機參數強制繞過 GitHub 和執行器的快取
+            local url = base .. path .. "?nocache=" .. sessionID .. "&t=" .. os.time()
             local ok, content = pcall(function()
                 return game:HttpGet(url)
             end)
@@ -82,18 +83,18 @@ local success, err = pcall(function()
     local utilsModule = GetScript("src/core/utils.lua")
     local GuiUtils = utilsModule.Init(mainGui)
 
-    Notify("Halol V4.4", "核心組件已就緒，載入介面中...", 3)
+    Notify("Halol V4.6", "核心組件已就緒，載入介面中...", 3)
     
     local functionsModule = GetScript("src/modules/functions.lua")
     local CatFunctions = functionsModule.Init(env)
     local blatantModule = GetScript("src/modules/blatant.lua")
-    local Blatant = blatantModule.Init(mainGui, function(...) Notify("Halol V4.4", ...) end, CatFunctions)
+    local Blatant = blatantModule.Init(mainGui, function(...) Notify("Halol V4.6", ...) end, CatFunctions)
 
     local aiModule = GetScript("src/modules/ai.lua")
     local AI = aiModule.Init(CatFunctions, Blatant)
 
     local visualsModule = GetScript("src/modules/visuals.lua")
-    local Visuals = visualsModule.Init(mainGui, function(...) Notify("Halol V4.4", ...) end)
+    local Visuals = visualsModule.Init(mainGui, function(...) Notify("Halol V4.6", ...) end)
 
     local firstTab = GuiUtils.CreateTab("自動核心")
     GuiUtils.CreateTab("視覺功能")
@@ -398,11 +399,10 @@ local success, err = pcall(function()
         load_func(game:HttpGet("https://raw.githubusercontent.com/akiopz/Roblox-Scripts/main/loader_main.lua"))()
     end)
 
-    print("Halol V4.0 模組化版本初始化完成！")
-    Notify("Halol V4.0", "初始化完成！按選單按鈕開始使用。", 5)
+    Notify("Halol V4.6", "腳本已成功加載！", 5)
 end)
 
 if not success then
-    warn("Halol 載入失敗: " .. tostring(err))
-    Notify("Halol 載入失敗", tostring(err), 10)
+    warn("加載失敗: " .. tostring(err))
+    Notify("加載失敗", tostring(err), "Error")
 end

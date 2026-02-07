@@ -82,12 +82,27 @@ function GuiUtils.Init(Gui)
             -- 暫時移除 CanvasGroup 動畫以確保穩定性
         end
         
-        Gui.SafeConnect(TabButton.Activated, Switch)
+        Gui.SafeConnect(TabButton.MouseButton1Click, Switch)
         
         Gui.SafeConnect(PageList:GetPropertyChangedSignal("AbsoluteContentSize"), function()
             Page.CanvasSize = UDim2_new(0, 0, 0, PageList.AbsoluteContentSize.Y + 10)
         end)
         
+        -- 修復字典計數問題，確保第一個分頁能自動顯示
+        local isFirst = true
+        for _ in pairs(Tabs) do
+            isFirst = false
+            break
+        end
+        Page.Visible = isFirst
+        
+        if isFirst then
+            TabButton.BackgroundColor3 = Color3_fromRGB(25, 30, 60)
+            TabButton.TextColor3 = Color3_fromRGB(0, 255, 255)
+            local stroke = TabButton:FindFirstChildOfClass("UIStroke")
+            if stroke then stroke.Color = Color3_fromRGB(0, 150, 255) end
+        end
+
         Tabs[name] = {Button = TabButton, Page = Page, List = PageList, Switch = Switch}
         return Tabs[name]
     end
@@ -116,45 +131,37 @@ function GuiUtils.Init(Gui)
             TextYAlignment = Enum.TextYAlignment.Top,
             AutoButtonColor = false,
             BorderSizePixel = 0,
-            Active = true -- 確保 Active 為 true
-        })
-        
-        Gui.ApplyProperties(BStroke, {
-            Color = Color3_fromRGB(50, 50, 80),
-            Thickness = 1,
-            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-            Parent = Button
-        })
-        
-        BCorner.CornerRadius = UDim.new(0, 2)
-        BCorner.Parent = Button
-        
-        -- 狀態指示燈
-        Gui.ApplyProperties(StatusLight, {
-            Name = "StatusLight",
-            Parent = Button,
-            BackgroundColor3 = Color3_fromRGB(60, 60, 80),
-            BorderSizePixel = 0,
-            Position = UDim2_new(0, 5, 0, 8),
-            Size = UDim2_new(0, 2, 0, 12)
+            Active = true,
+            Selectable = true
         })
 
+        Gui.ApplyProperties(BCorner, { CornerRadius = UDim.new(0, 6), Parent = Button })
+        Gui.ApplyProperties(BStroke, { Color = Color3_fromRGB(50, 50, 80), Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = Button })
+        
+        Gui.ApplyProperties(StatusLight, {
+            Size = UDim2_new(0, 4, 0, 20),
+            Position = UDim2_new(0, 5, 0, 8),
+            BackgroundColor3 = Color3_fromRGB(60, 60, 80),
+            BorderSizePixel = 0,
+            Parent = Button
+        })
+        Gui.ApplyProperties(Instance.new("UICorner"), { CornerRadius = UDim.new(1, 0), Parent = StatusLight })
+
         Gui.ApplyProperties(DescLabel, {
-            Parent = Button,
+            Size = UDim2_new(1, -20, 0, 20),
+            Position = UDim2_new(0, 15, 0, 32),
             BackgroundTransparency = 1,
-            Position = UDim2_new(0, 12, 0, 30),
-            Size = UDim2_new(1, -24, 0, 25),
-            Font = Enum_Font.Code,
-            Text = "// " .. desc,
+            Font = Enum_Font.Gotham,
+            Text = desc,
             TextColor3 = Color3_fromRGB(100, 100, 130),
-            TextSize = 11,
+            TextSize = 12,
             TextXAlignment = Enum.TextXAlignment.Left,
-            TextWrapped = true
+            Parent = Button
         })
 
         local active = false
         local isProcessing = false
-        Gui.SafeConnect(Button.Activated, function()
+        Gui.SafeConnect(Button.MouseButton1Click, function()
             if isProcessing then return end
             isProcessing = true
             
@@ -167,7 +174,6 @@ function GuiUtils.Init(Gui)
                     local targetColor = active and Color3_fromRGB(30, 40, 80) or Color3_fromRGB(20, 20, 35)
                     local targetStroke = active and Color3_fromRGB(0, 150, 255) or Color3_fromRGB(50, 50, 80)
                     
-                    -- 簡單的顏色過渡 (可以根據需要增加更複雜的補間動畫)
                     Button.BackgroundColor3 = targetColor
                     BStroke.Color = targetStroke
                     
