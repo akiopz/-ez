@@ -316,6 +316,7 @@ function functionsModule.Init(env)
         env_global.Speed = state
         if not env_global.Speed then return end
         task.spawn(function()
+            local lastPos = lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart") and lplr.Character.HumanoidRootPart.Position
             while env_global.Speed and task.wait() do
                 if lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart") then
                     local hrp = lplr.Character.HumanoidRootPart
@@ -323,13 +324,23 @@ function functionsModule.Init(env)
                     local moveDir = hum.MoveDirection
                     
                     if moveDir.Magnitude > 0 then
-                        -- 脈衝式加速 (Pulse Speed) - 繞過檢測的同時保持高速
-                        local speed = (env_global.SpeedValue or 23) * 0.1
-                        hrp.CFrame = hrp.CFrame + (moveDir * speed)
+                        -- 平滑脈衝式加速 (Smooth Pulse Speed)
+                        local speed = (env_global.SpeedValue or 23) * 0.08 -- 稍微降低單次增量以提高穩定性
+                        local targetPos = hrp.Position + (moveDir * speed)
                         
-                        -- 增加微小的垂直位移以防止回溯 (Rubberband Prevention)
-                        if tick() % 0.5 < 0.1 then
-                            hrp.Velocity = Vector3_new(hrp.Velocity.X, 0.1, hrp.Velocity.Z)
+                        -- 檢查是否與伺服器位置偏差過大
+                        if lastPos and (targetPos - lastPos).Magnitude > 5 then
+                            -- 如果偏差過大，進行補償性平滑
+                            targetPos = lastPos:Lerp(targetPos, 0.5)
+                        end
+                        
+                        hrp.CFrame = CFrame.new(targetPos, targetPos + moveDir)
+                        lastPos = targetPos
+                        
+                        -- 動態調整 Velocity 以保持同步並防止回溯
+                        if tick() % 0.3 < 0.1 then
+                            -- 每隔一段時間給予一個微小的向上力，重置落地方位檢測
+                            hrp.Velocity = Vector3_new(hrp.Velocity.X, 0.5, hrp.Velocity.Z)
                         end
                     end
                 end
@@ -441,6 +452,63 @@ function functionsModule.Init(env)
                         v.Character.HumanoidRootPart.Size = Vector3_new(10, 10, 10)
                         v.Character.HumanoidRootPart.Transparency = 0.7
                         v.Character.HumanoidRootPart.CanCollide = false
+                    end
+                end
+            end
+        end)
+    end
+
+    CatFunctions.ToggleAntiDead = function(state)
+        env_global.AntiDead = state
+        if not env_global.AntiDead then return end
+        task.spawn(function()
+            Notify("Anti Dead", "已啟動防死模式：低血量自動逃生 + 空中打擊", "Success")
+            while env_global.AntiDead and task.wait(0.1) do
+                if lplr.Character and lplr.Character:FindFirstChild("Humanoid") and lplr.Character:FindFirstChild("HumanoidRootPart") then
+                    local hum = lplr.Character.Humanoid
+                    local hrp = lplr.Character.HumanoidRootPart
+                    
+                    -- 1. 低血量逃生 (血量低於 30%)
+                    if hum.Health < hum.MaxHealth * 0.3 then
+                        Notify("Anti Dead", "血量過低！正在執行緊急空中避難...", "Warning")
+                        
+                        -- 記錄原始位置以便恢復或後續邏輯
+                        local safeHeight = 50 -- 飛向 50 格高空
+                        local startPos = hrp.Position
+                        
+                        -- 快速升空
+                        for i = 1, 10 do
+                            hrp.CFrame = hrp.CFrame + Vector3_new(0, 5, 0)
+                            hrp.Velocity = Vector3_new(0, 0, 0)
+                            task.wait(0.05)
+                        end
+                        
+                        -- 保持在空中並繼續攻擊
+                        local escapeTime = tick()
+                        while tick() - escapeTime < 5 and hum.Health < hum.MaxHealth * 0.8 and env_global.AntiDead do
+                            -- 懸停並微動防止檢測
+                            hrp.Velocity = Vector3_new(0, 2, 0)
+                            
+                            -- 在空中仍然可以攻擊 (KillAura 已經在運行，這裡只需確保範圍足夠)
+                            if env_global.KillAura then
+                                env_global.KillAuraRange = 50 -- 臨時擴大攻擊範圍以在空中打擊
+                            end
+                            
+                            task.wait(0.1)
+                        end
+                        
+                        -- 恢復攻擊範圍
+                        if env_global.KillAura then
+                            env_global.KillAuraRange = env_global.Reach and 25 or 18
+                        end
+                        
+                        Notify("Anti Dead", "狀態已恢復，回到戰場", "Success")
+                    end
+                    
+                    -- 2. 防虛空檢測 (如果掉落過深)
+                    if hrp.Position.Y < -50 then
+                        hrp.Velocity = Vector3_new(0, 100, 0)
+                        hrp.CFrame = hrp.CFrame + Vector3_new(0, 100, 0)
                     end
                 end
             end

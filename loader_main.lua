@@ -14,7 +14,7 @@ env_global.ProjectileAura = env_global.ProjectileAura or false
 env_global.VelocityHorizontal = env_global.VelocityHorizontal or 15
 env_global.VelocityVertical = env_global.VelocityVertical or 100
 
-print("Halol V4.8.4 開始加載 (新增 Auto Win 功能)...")
+print("Halol V4.8.5 開始加載 (優化移動與防死)...")
 
 -- 增加一個隨機數來徹底繞過快取
 local sessionID = tostring(math.random(100000, 999999))
@@ -36,7 +36,7 @@ local function Notify(title, text, duration)
     end)
 end
 
-Notify("Halol V4.8.4", "正在從雲端獲獲取最新組件 (強制刷新)...", 3)
+Notify("Halol V4.8.5", "正在從雲端獲獲取最新組件 (強制刷新)...", 3)
 
 local success, err = pcall(function()
     local HOSTS = {
@@ -83,20 +83,21 @@ local success, err = pcall(function()
     local utilsModule = GetScript("src/core/utils.lua")
     local GuiUtils = utilsModule.Init(mainGui)
 
-    Notify("Halol V4.8.4", "核心組件已就緒，載入介面中...", 3)
+    Notify("Halol V4.8.5", "核心組件已就緒，載入介面中...", 3)
     
     local functionsModule = GetScript("src/modules/functions.lua")
     local CatFunctions = functionsModule.Init(env)
     local blatantModule = GetScript("src/modules/blatant.lua")
-    local Blatant = blatantModule.Init(mainGui, function(...) Notify("Halol V4.8.4", ...) end, CatFunctions)
+    local Blatant = blatantModule.Init(mainGui, function(...) Notify("Halol V4.8.5", ...) end, CatFunctions)
 
     local aiModule = GetScript("src/modules/ai.lua")
     local AI = aiModule.Init(CatFunctions, Blatant)
 
     local visualsModule = GetScript("src/modules/visuals.lua")
-    local Visuals = visualsModule.Init(mainGui, function(...) Notify("Halol V4.8.4", ...) end)
+    local Visuals = visualsModule.Init(mainGui, function(...) Notify("Halol V4.8.5", ...) end)
 
     local firstTab = GuiUtils.CreateTab("自動核心")
+    GuiUtils.AddScript("自動核心", "不死模式 (Anti Dead)", "低血量自動升空避難並持續攻擊", function(s) CatFunctions.ToggleAntiDead(s) end, Notify)
     GuiUtils.AddScript("自動核心", "自動勝出 (Auto Win)", "自動摧毀敵方床位並清除玩家以獲取勝利", function(s) CatFunctions.ToggleAutoWin(s) end, Notify)
     GuiUtils.AddScript("自動核心", "自動路徑 (AI)", "自動前往最近的目標或資源點", function(s) AI.Toggle(s) end, Notify)
     GuiUtils.AddScript("自動核心", "全自動資源收集", "自動採集地圖上的鐵、金、鑽石、翡翠", function(s) CatFunctions.ToggleAutoResourceFarm(s) end, Notify)
@@ -148,7 +149,7 @@ local success, err = pcall(function()
     GuiUtils.AddScript("視覺顯示", "血量顯示", "在玩家頭頂顯示即時血量", function(s) Visuals.ToggleHealthDisplay(s) end, Notify)
     GuiUtils.AddScript("視覺顯示", "傷害指示器", "顯示造成的傷害數值動畫", function(s) CatFunctions.ToggleDamageIndicator(s) end, Notify)
 
-    Notify("Halol V4.8.4", "腳本已成功加載！", 5)
+    Notify("Halol V4.8.5", "腳本已成功加載！", 5)
 end)
 
 if not success then
