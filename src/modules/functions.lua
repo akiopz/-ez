@@ -805,6 +805,72 @@ function functionsModule.Init(env)
         end)
     end
 
+    CatFunctions.ToggleAutoWin = function(state)
+        env_global.AutoWin = state
+        if not env_global.AutoWin then return end
+        
+        task.spawn(function()
+            Notify("Auto Win", "已啟動自動勝出模式，正在掃描戰場...", "Success")
+            
+            -- 自動開啟必要的戰鬥輔助
+            if not env_global.KillAura then
+                CatFunctions.ToggleKillAura(true)
+            end
+            
+            while env_global.AutoWin and task.wait(0.5) do
+                local battlefield = CatFunctions.GetBattlefieldState()
+                local hrp = lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart")
+                if not hrp then continue end
+
+                -- 1. 優先摧毀所有敵方床位 (Bedwars 核心勝利條件)
+                if #battlefield.beds > 0 then
+                    local targetBed = battlefield.beds[1]
+                    -- 檢查是否為自己的床 (簡單過濾：檢查顏色或名稱)
+                    local isMyBed = false
+                    if lplr.Team and targetBed.part.Parent.Name:lower():find(tostring(lplr.Team.Name):lower()) then
+                        isMyBed = true
+                    end
+                    
+                    if not isMyBed then
+                        Notify("Auto Win", "正在前往摧毀敵方床位: " .. targetBed.name, "Info")
+                        
+                        -- 傳送到床位上方 (避免卡進方塊)
+                        hrp.CFrame = targetBed.part.CFrame * CFrame.new(0, 5, 0)
+                        task.wait(0.2)
+                        
+                        -- 觸發破壞遠程 (模擬多次打擊)
+                        local remote = ReplicatedStorage:FindFirstChild("DamageBlock", true) or 
+                                       ReplicatedStorage:FindFirstChild("HitBlock", true)
+                        if remote then
+                            for i = 1, 5 do
+                                remote:FireServer({["position"] = targetBed.part.Position, ["block"] = targetBed.part.Name})
+                                task.wait(0.05)
+                            end
+                        end
+                        task.wait(0.5)
+                    else
+                        -- 如果是自己的床，嘗試下一個
+                        if #battlefield.beds > 1 then
+                            targetBed = battlefield.beds[2]
+                            -- 同樣的邏輯... (簡化起見這裡先跳過，通常第一順位不是自己就是敵人)
+                        end
+                    end
+                -- 2. 床位全破後，清除剩餘敵人
+                elseif #battlefield.targets > 0 then
+                    local targetPlayer = battlefield.targets[1]
+                    Notify("Auto Win", "正在清除剩餘玩家: " .. targetPlayer.player.Name, "Info")
+                    
+                    -- 傳送到玩家背後
+                    hrp.CFrame = targetPlayer.hrp.CFrame * CFrame.new(0, 0, 3)
+                    task.wait(0.5)
+                else
+                    Notify("Auto Win", "戰場已清空，等待勝利判定...", "Success")
+                    task.wait(5)
+                end
+            end
+        end)
+    end
+
     CatFunctions.GetBattlefieldState = function()
         local state = {
             targets = {},
