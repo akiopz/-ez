@@ -120,7 +120,7 @@ function VisualsModule.Init(Gui, Notify)
             local root = char:FindFirstChild("HumanoidRootPart")
             
             task_spawn(function()
-                while _G.FullESPEnabled and char.Parent and head.Parent do
+                while env_global.FullESPEnabled and char.Parent and head.Parent do
                     if hum then
                         local hpPercent = math_clamp(hum.Health / hum.MaxHealth, 0, 1)
                         healthBar.Size = UDim2_new(hpPercent, 0, 1, 0)
@@ -129,9 +129,14 @@ function VisualsModule.Init(Gui, Notify)
                         local dist = (lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") and root) and 
                                      math_floor((lp.Character.HumanoidRootPart.Position - root.Position).Magnitude) or 0
                         
-                        infoLabel.Text = string_format("[%d HP] | %d m", math_floor(hum.Health), dist)
+                        -- 增加更多有用資訊：當前手持工具
+                        local heldItem = char:FindFirstChildOfClass("Tool") and char:FindFirstChildOfClass("Tool").Name or "None"
+                        infoLabel.Text = string_format("[%d HP] | %d m\nItem: %s", math_floor(hum.Health), dist, heldItem)
                     end
-                    task_wait(0.1)
+                    -- 優化更新頻率：遠處玩家降低更新頻率
+                    local dist = (lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") and root) and 
+                                 (lp.Character.HumanoidRootPart.Position - root.Position).Magnitude or 0
+                    task_wait(dist > 100 and 0.5 or 0.1)
                 end
                 billboard:Destroy()
             end)
@@ -153,7 +158,7 @@ function VisualsModule.Init(Gui, Notify)
         if not line then return end
 
         task_spawn(function()
-            while _G.TracersEnabled and player.Parent do
+            while env_global.TracersEnabled and player.Parent do
                 local char = player.Character
                 local root = char and char:FindFirstChild("HumanoidRootPart")
                 local screenPos, onScreen = nil, false
@@ -176,8 +181,8 @@ function VisualsModule.Init(Gui, Notify)
     end
 
     local function ToggleFullbright(state)
-        _G.FullbrightEnabled = state
-        if _G.FullbrightEnabled then
+        env_global.FullbrightEnabled = state
+        if env_global.FullbrightEnabled then
             task_spawn(function()
                 local Lighting = game:GetService("Lighting")
                 local oldBrightness = Lighting.Brightness
@@ -185,7 +190,7 @@ function VisualsModule.Init(Gui, Notify)
                 local oldFogEnd = Lighting.FogEnd
                 local oldGlobalShadows = Lighting.GlobalShadows
                 
-                while _G.FullbrightEnabled do
+                while env_global.FullbrightEnabled do
                     Lighting.Brightness = 2
                     Lighting.ClockTime = 14
                     Lighting.FogEnd = 100000
@@ -226,7 +231,7 @@ function VisualsModule.Init(Gui, Notify)
         })
         
         task_spawn(function()
-            while _G.ChestESPEnabled and chest.Parent do
+            while env_global.ChestESPEnabled and chest.Parent do
                 task_wait(1)
             end
             billboard:Destroy()
@@ -259,12 +264,12 @@ function VisualsModule.Init(Gui, Notify)
     end
 
     local function CreateRadar()
-        if _G.RadarGui then _G.RadarGui:Destroy() end
+        if env_global.RadarGui then env_global.RadarGui:Destroy() end
         
         local screenGui = Instance.new("ScreenGui")
         screenGui.Name = "CatRadar"
         screenGui.Parent = game:GetService("CoreGui")
-        _G.RadarGui = screenGui
+        env_global.RadarGui = screenGui
         
         local mainFrame = Instance.new("Frame")
         Gui.ApplyProperties(mainFrame, {
@@ -289,7 +294,7 @@ function VisualsModule.Init(Gui, Notify)
         local playerDots = {}
         
         task_spawn(function()
-            while _G.RadarEnabled and screenGui.Parent do
+            while env_global.RadarEnabled and screenGui.Parent do
                 local char = lp.Character
                 local root = char and char:FindFirstChild("HumanoidRootPart")
                 
@@ -305,7 +310,7 @@ function VisualsModule.Init(Gui, Notify)
                                 dot = Instance.new("Frame")
                                 Gui.ApplyProperties(dot, {
                                     Parent = mainFrame,
-                                    BackgroundColor3 = player.TeamColor.Color or Color3_fromRGB(255, 0, 0),
+                                    BackgroundColor3 = (player.TeamColor and player.TeamColor.Color) or Color3_fromRGB(255, 0, 0),
                                     Size = UDim2_new(0, 4, 0, 4),
                                     BorderSizePixel = 0
                                 })
@@ -330,7 +335,7 @@ function VisualsModule.Init(Gui, Notify)
                 task_wait(0.05)
             end
             if screenGui then screenGui:Destroy() end
-            _G.RadarGui = nil
+            env_global.RadarGui = nil
         end)
     end
 
@@ -346,27 +351,27 @@ function VisualsModule.Init(Gui, Notify)
             end)
         end,
         ToggleFullESP = function(state)
-            _G.FullESPEnabled = state
-            if _G.FullESPEnabled then
+            env_global.FullESPEnabled = state
+            if env_global.FullESPEnabled then
                 for _, p in ipairs(Players:GetPlayers()) do CreateFullESP(p) end
                 Gui.SafeConnect(Players.PlayerAdded, CreateFullESP)
             end
         end,
         ToggleTracers = function(state)
-            _G.TracersEnabled = state
-            if _G.TracersEnabled then
+            env_global.TracersEnabled = state
+            if env_global.TracersEnabled then
                 for _, p in ipairs(Players:GetPlayers()) do CreateTracer(p) end
                 Gui.SafeConnect(Players.PlayerAdded, CreateTracer)
             end
         end,
         ToggleFullbright = ToggleFullbright,
         ToggleChestESP = function(state)
-            _G.ChestESPEnabled = state
-            if _G.ChestESPEnabled then
+            env_global.ChestESPEnabled = state
+            if env_global.ChestESPEnabled then
                 task_spawn(function()
-                    while _G.ChestESPEnabled and task_wait(2) do
+                    while env_global.ChestESPEnabled and task_wait(2) do
                         for _, v in ipairs(workspace:GetDescendants()) do
-                            if not _G.ChestESPEnabled then break end
+                            if not env_global.ChestESPEnabled then break end
                             if v:IsA("BasePart") and v.Name:lower():find("chest") then
                                 CreateChestESP(v)
                             end
@@ -376,12 +381,12 @@ function VisualsModule.Init(Gui, Notify)
             end
         end,
         ToggleShopESP = function(state)
-            _G.ShopESPEnabled = state
-            if _G.ShopESPEnabled then
+            env_global.ShopESPEnabled = state
+            if env_global.ShopESPEnabled then
                 task_spawn(function()
-                    while _G.ShopESPEnabled and task_wait(2) do
+                    while env_global.ShopESPEnabled and task_wait(2) do
                         for _, v in ipairs(workspace:GetDescendants()) do
-                            if not _G.ShopESPEnabled then break end
+                            if not env_global.ShopESPEnabled then break end
                             if v:IsA("Model") and (v.Name:lower():find("shop") or v.Name:lower():find("merchant")) then
                                 CreateShopESP(v)
                             end
@@ -391,8 +396,8 @@ function VisualsModule.Init(Gui, Notify)
             end
         end,
         ToggleRadar = function(state)
-            _G.RadarEnabled = state
-            if _G.RadarEnabled then
+            env_global.RadarEnabled = state
+            if env_global.RadarEnabled then
                 CreateRadar()
             end
         end

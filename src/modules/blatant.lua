@@ -25,8 +25,37 @@ local task_wait = task.wait
 
 local BlatantModule = {}
 
-function BlatantModule.Init(Gui, Notify)
+function BlatantModule.Init(Gui, Notify, CatFunctions)
     return {
+        ToggleGlobalResourceCollect = function(state)
+                    env_global.GlobalResourceCollect = state
+                    if not env_global.GlobalResourceCollect then return end
+                    task.spawn(function()
+                        while env_global.GlobalResourceCollect and task.wait(0.5) do
+                            local char = lp.Character
+                            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                            if hrp and CatFunctions and CatFunctions.GetBattlefieldState then
+                                local battlefield = CatFunctions.GetBattlefieldState()
+                                if #battlefield.resources > 0 then
+                                    for _, res in ipairs(battlefield.resources) do
+                                        if not env_global.GlobalResourceCollect then break end
+                                        if res.part and res.part.Parent then
+                                            -- 檢查是否為掉落物 (ItemDrops 或 Pickups 內)
+                                            local isPickup = res.part:IsDescendantOf(workspace:FindFirstChild("ItemDrops")) or 
+                                                           res.part:IsDescendantOf(workspace:FindFirstChild("Pickups"))
+                                            
+                                            if isPickup then
+                                                hrp.CFrame = res.part.CFrame + Vector3_new(0, 1, 0)
+                                                task_wait(0.2)
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end)
+                end,
+
         ToggleVoidAll = function(state)
             env_global.VoidAll = state
             if not env_global.VoidAll then return end

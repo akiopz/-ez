@@ -33,19 +33,22 @@ function functionsModule.Init(env)
         task.spawn(function()
             while env_global.KillAura and task.wait() do
                 local target = env_global.KillAuraTarget or nil
+                
+                -- 驗證當前目標有效性
                 if target and target:FindFirstChild("Humanoid") and target.Humanoid.Health > 0 then
                     local hrp = target:FindFirstChild("HumanoidRootPart")
-                    if hrp and (lplr.Character.HumanoidRootPart.Position - hrp.Position).Magnitude > (env_global.KillAuraRange or 18) then
+                    if not hrp or (lplr.Character.HumanoidRootPart.Position - hrp.Position).Magnitude > (env_global.KillAuraRange or 20) then
                         target = nil
                     end
                 else
                     target = nil
                 end
 
+                -- 自動搜尋最近目標 (如果沒有當前目標)
                 if not target then
-                    local dist = env_global.KillAuraRange or 18
+                    local dist = env_global.KillAuraRange or 20
                     for _, v in pairs(Players:GetPlayers()) do
-                        if v ~= lplr and v.Team ~= lplr.Team and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+                        if v ~= lplr and v.Team ~= lplr.Team and v.Character and v.Character:FindFirstChild("HumanoidRootPart") and v.Character.Humanoid.Health > 0 then
                             local d = (lplr.Character.HumanoidRootPart.Position - v.Character.HumanoidRootPart.Position).Magnitude
                             if d < dist then
                                 target = v.Character
@@ -56,13 +59,32 @@ function functionsModule.Init(env)
                 end
 
                 if target then
-                    local delay = math.random(8, 12) / 100
-                    task.wait(delay)
+                    -- 智慧型打擊延遲 (模擬真實點擊，繞過部分檢測)
+                    local cps = env_global.KillAuraCPS or 12
+                    local delay = (1 / cps) * math.random(8, 12) / 10
+                    
                     local remote = ReplicatedStorage:FindFirstChild("SwordHit", true) or 
                                    ReplicatedStorage:FindFirstChild("CombatRemote", true)
                     if remote then
-                        remote:FireServer({["entity"] = target})
+                        -- 執行多目標打擊 (如果開啟多目標模式)
+                        if env_global.KillAuraMaxTargets and env_global.KillAuraMaxTargets > 1 then
+                            local hitCount = 0
+                            for _, v in pairs(Players:GetPlayers()) do
+                                if hitCount >= env_global.KillAuraMaxTargets then break end
+                                if v ~= lplr and v.Team ~= lplr.Team and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+                                    local d = (lplr.Character.HumanoidRootPart.Position - v.Character.HumanoidRootPart.Position).Magnitude
+                                    if d < (env_global.KillAuraRange or 20) then
+                                        remote:FireServer({["entity"] = v.Character})
+                                        hitCount = hitCount + 1
+                                    end
+                                end
+                            end
+                        else
+                            -- 單目標打擊
+                            remote:FireServer({["entity"] = target})
+                        end
                     end
+                    task.wait(delay)
                 end
             end
         end)
@@ -75,11 +97,26 @@ function functionsModule.Init(env)
             while env_global.Scaffold and task.wait() do
                 if lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart") then
                     local hrp = lplr.Character.HumanoidRootPart
-                    local pos = hrp.Position + (hrp.CFrame.LookVector * 1) - Vector3_new(0, 3.5, 0)
+                    local hum = lplr.Character:FindFirstChildOfClass("Humanoid")
+                    
+                    -- 精準預測腳下座標
+                    local moveDir = hum.MoveDirection
+                    local offset = moveDir * 1.5
+                    local pos = hrp.Position + offset - Vector3_new(0, 3.8, 0)
                     local blockPos = Vector3_new(math.floor(pos.X/3)*3, math.floor(pos.Y/3)*3, math.floor(pos.Z/3)*3)
+                    
                     local remote = ReplicatedStorage:FindFirstChild("PlaceBlock", true)
                     if remote then
-                        remote:FireServer({["blockType"] = "wool_white", ["position"] = blockPos})
+                        remote:FireServer({
+                            ["blockType"] = "wool_white", 
+                            ["position"] = blockPos,
+                            ["blockData"] = 0
+                        })
+                    end
+                    
+                    -- 如果正在移動，微調高度以保持平滑
+                    if moveDir.Magnitude > 0 then
+                        hrp.Velocity = Vector3_new(hrp.Velocity.X, 0, hrp.Velocity.Z)
                     end
                 end
             end
@@ -97,10 +134,16 @@ function functionsModule.Init(env)
 
     CatFunctions.ToggleNoSlowDown = function(state)
         env_global.NoSlowDown = state
+        if not env_global.NoSlowDown then return end
         task.spawn(function()
             while env_global.NoSlowDown and task.wait() do
                 if lplr.Character and lplr.Character:FindFirstChildOfClass("Humanoid") then
-                    lplr.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = env_global.SpeedValue or 23
+                    local hum = lplr.Character:FindFirstChildOfClass("Humanoid")
+                    -- 強制鎖定速度，防止攻擊、吃東西或使用道具時的減速
+                    local baseSpeed = env_global.SpeedValue or 23
+                    if hum.WalkSpeed < baseSpeed then
+                        hum.WalkSpeed = baseSpeed
+                    end
                 end
             end
         end)
@@ -136,9 +179,22 @@ function functionsModule.Init(env)
             if lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart") then
                 local hrp = lplr.Character.HumanoidRootPart
                 local hum = lplr.Character:FindFirstChildOfClass("Humanoid")
+                
+                -- 準備階段：向上微跳
                 hum:ChangeState("Jumping")
-                hrp.Velocity = hrp.Velocity + (hrp.CFrame.LookVector * 50) + Vector3_new(0, 30, 0)
-                task.wait(0.5)
+                task.wait(0.1)
+                
+                -- 發動階段：強大的水平與垂直衝量
+                local lookVec = hum.MoveDirection.Magnitude > 0 and hum.MoveDirection or hrp.CFrame.LookVector
+                hrp.Velocity = (lookVec * 65) + Vector3_new(0, 35, 0)
+                
+                -- 持續階段：在空中保持一段時間的水平動力
+                local startTime = tick()
+                while tick() - startTime < 0.8 and env_global.LongJump do
+                    hrp.Velocity = Vector3_new(hrp.Velocity.X, hrp.Velocity.Y, hrp.Velocity.Z)
+                    task.wait()
+                end
+                
                 env_global.LongJump = false
             end
         end)
@@ -165,15 +221,37 @@ function functionsModule.Init(env)
         env_global.AutoResourceFarm = state
         if not env_global.AutoResourceFarm then return end
         task.spawn(function()
-            while env_global.AutoResourceFarm and task.wait(1) do
+            while env_global.AutoResourceFarm and task.wait(0.5) do
                 local state = CatFunctions.GetBattlefieldState()
                 if #state.resources > 0 then
-                    local target = state.resources[1]
+                    local target = state.resources[1] -- 已排序，最近的資源
                     local hrp = lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart")
-                    if hrp and target.dist > 5 then
-                        local tween = TweenService:Create(hrp, TweenInfo.new(target.dist / 20), {CFrame = target.part.CFrame + Vector3_new(0, 3, 0)})
-                        tween:Play()
-                        tween.Completed:Wait()
+                    
+                    if hrp and target.dist > 3 then
+                        -- 智慧型路徑移動
+                        local targetPos = target.part.Position + Vector3_new(0, 3, 0)
+                        
+                        -- 如果距離過遠則使用傳送 (帶有隨機延遲以防檢測)
+                        if target.dist > 50 then
+                            hrp.CFrame = CFrame.new(targetPos)
+                            task.wait(0.1)
+                        else
+                            -- 使用 Tween 進行平滑移動
+                            local tween = TweenService:Create(hrp, TweenInfo.new(target.dist / 30, Enum.EasingStyle.Linear), {CFrame = CFrame.new(targetPos)})
+                            tween:Play()
+                            
+                            -- 在移動過程中檢查開關狀態
+                            local connection
+                            connection = RunService.Heartbeat:Connect(function()
+                                if not env_global.AutoResourceFarm then
+                                    tween:Cancel()
+                                    connection:Disconnect()
+                                end
+                            end)
+                            
+                            tween.Completed:Wait()
+                            if connection then connection:Disconnect() end
+                        end
                     end
                 end
             end
@@ -204,11 +282,16 @@ function functionsModule.Init(env)
         env_global.NoFall = state
         if not env_global.NoFall then return end
         task.spawn(function()
-            while env_global.NoFall and task.wait(0.5) do
+            while env_global.NoFall and task.wait(0.1) do
                 local remote = ReplicatedStorage:FindFirstChild("FallDamage", true) or 
                                ReplicatedStorage:FindFirstChild("GroundHit", true)
                 if remote then
-                    remote:FireServer({["damage"] = 0, ["distance"] = 0})
+                    -- 智慧型偽造墜落數據：模擬極小距離墜落
+                    remote:FireServer({
+                        ["damage"] = 0, 
+                        ["distance"] = 2,
+                        ["fallDistance"] = 2
+                    })
                 end
             end
         end)
@@ -233,13 +316,21 @@ function functionsModule.Init(env)
         env_global.Speed = state
         if not env_global.Speed then return end
         task.spawn(function()
-            local count = 0
             while env_global.Speed and task.wait() do
                 if lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart") then
                     local hrp = lplr.Character.HumanoidRootPart
-                    count = count + 1
-                    if count % 3 == 0 then
-                        hrp.CFrame = hrp.CFrame + (hrp.CFrame.LookVector * (env_global.SpeedValue or 0.5))
+                    local hum = lplr.Character:FindFirstChildOfClass("Humanoid")
+                    local moveDir = hum.MoveDirection
+                    
+                    if moveDir.Magnitude > 0 then
+                        -- 脈衝式加速 (Pulse Speed) - 繞過檢測的同時保持高速
+                        local speed = (env_global.SpeedValue or 23) * 0.1
+                        hrp.CFrame = hrp.CFrame + (moveDir * speed)
+                        
+                        -- 增加微小的垂直位移以防止回溯 (Rubberband Prevention)
+                        if tick() % 0.5 < 0.1 then
+                            hrp.Velocity = Vector3_new(hrp.Velocity.X, 0.1, hrp.Velocity.Z)
+                        end
                     end
                 end
             end
@@ -253,8 +344,23 @@ function functionsModule.Init(env)
             while env_global.Fly and task.wait() do
                 if lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart") then
                     local hrp = lplr.Character.HumanoidRootPart
-                    local vel = hrp.Velocity
-                    hrp.Velocity = Vector3_new(vel.X, 2 + math.sin(tick() * 10) * 0.5, vel.Z)
+                    local hum = lplr.Character:FindFirstChildOfClass("Humanoid")
+                    local moveDir = hum.MoveDirection
+                    
+                    -- 抗回溯飛行邏輯
+                    local flySpeed = env_global.FlySpeed or 50
+                    local verticalVel = 0
+                    
+                    if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.Space) then
+                        verticalVel = flySpeed
+                    elseif game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.LeftShift) then
+                        verticalVel = -flySpeed
+                    else
+                        -- 懸停效果 (微小浮動模擬)
+                        verticalVel = math.sin(tick() * 10) * 2
+                    end
+                    
+                    hrp.Velocity = (moveDir * flySpeed) + Vector3_new(0, verticalVel + 2, 0)
                 end
             end
         end)
@@ -296,6 +402,122 @@ function functionsModule.Init(env)
                 end
             end
         end)
+    end
+
+    CatFunctions.ToggleTriggerBot = function(state)
+        env_global.TriggerBot = state
+        if not env_global.TriggerBot then return end
+        task.spawn(function()
+            while env_global.TriggerBot and task.wait() do
+                local mouse = lplr:GetMouse()
+                local target = mouse.Target
+                if target and target.Parent and target.Parent:FindFirstChild("Humanoid") then
+                    local player = Players:GetPlayerFromCharacter(target.Parent)
+                    if player and player ~= lplr and player.Team ~= lplr.Team then
+                        local tool = lplr.Character and lplr.Character:FindFirstChildOfClass("Tool")
+                        if tool then tool:Activate() end
+                    end
+                end
+            end
+        end)
+    end
+
+    CatFunctions.ToggleHitboxExpander = function(state)
+        env_global.HitboxExpander = state
+        task.spawn(function()
+            while env_global.HitboxExpander and task.wait(1) do
+                for _, v in pairs(Players:GetPlayers()) do
+                    if v ~= lplr and v.Team ~= lplr.Team and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+                        v.Character.HumanoidRootPart.Size = Vector3_new(10, 10, 10)
+                        v.Character.HumanoidRootPart.Transparency = 0.7
+                    end
+                end
+            end
+            if not env_global.HitboxExpander then
+                for _, v in pairs(Players:GetPlayers()) do
+                    if v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+                        v.Character.HumanoidRootPart.Size = Vector3_new(2, 2, 1)
+                        v.Character.HumanoidRootPart.Transparency = 1
+                    end
+                end
+            end
+        end)
+    end
+
+    CatFunctions.ToggleStep = function(state)
+        env_global.Step = state
+        task.spawn(function()
+            while env_global.Step and task.wait() do
+                if lplr.Character and lplr.Character:FindFirstChildOfClass("Humanoid") then
+                    lplr.Character:FindFirstChildOfClass("Humanoid").StepHeight = 5
+                end
+            end
+            if not env_global.Step and lplr.Character and lplr.Character:FindFirstChildOfClass("Humanoid") then
+                lplr.Character:FindFirstChildOfClass("Humanoid").StepHeight = 3
+            end
+        end)
+    end
+
+    CatFunctions.ToggleAntiVoid = function(state)
+        env_global.AntiVoid = state
+        if not env_global.AntiVoid then
+            if env_global.AntiVoidPart then env_global.AntiVoidPart:Destroy() end
+            return
+        end
+        task.spawn(function()
+            local part = Instance.new("Part")
+            part.Name = "AntiVoidPart"
+            part.Size = Vector3_new(2000, 1, 2000)
+            part.Position = Vector3_new(0, 0, 0)
+            part.Anchored = true
+            part.Transparency = 0.5
+            part.Color = Color3.fromRGB(60, 120, 255)
+            part.Parent = workspace
+            env_global.AntiVoidPart = part
+            
+            part.Touched:Connect(function(hit)
+                if hit.Parent == lplr.Character then
+                    lplr.Character.HumanoidRootPart.Velocity = Vector3_new(0, 100, 0)
+                end
+            end)
+            
+            while env_global.AntiVoid and task.wait(1) do
+                part.Position = Vector3_new(lplr.Character.HumanoidRootPart.Position.X, 0, lplr.Character.HumanoidRootPart.Position.Z)
+            end
+        end)
+    end
+
+    CatFunctions.ToggleChatSpam = function(state)
+        env_global.ChatSpam = state
+        if not env_global.ChatSpam then return end
+        task.spawn(function()
+            local messages = {"HALOL V4.0 ON TOP!", "GET GOOD GET HALOL", "HALOL BEST FREE SCRIPT"}
+            while env_global.ChatSpam and task.wait(3) do
+                local msg = messages[math.random(1, #messages)]
+                local sayMsg = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents") and 
+                               ReplicatedStorage.DefaultChatSystemChatEvents:FindFirstChild("SayMessageRequest")
+                if sayMsg then
+                    sayMsg:FireServer(msg, "All")
+                elseif game:GetService("TextChatService"):FindFirstChild("TextChannels") then
+                    game:GetService("TextChatService").TextChannels.RBXGeneral:SendAsync(msg)
+                end
+            end
+        end)
+    end
+
+    CatFunctions.ServerHop = function()
+        local HttpService = game:GetService("HttpService")
+        local servers = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100")).data
+        for _, s in pairs(servers) do
+            if s.playing < s.maxPlayers and s.id ~= game.JobId then
+                game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, s.id)
+                break
+            end
+        end
+    end
+
+    CatFunctions.Rejoin = function()
+        game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, game.JobId)
     end
 
     CatFunctions.ToggleAutoBalloon = function(state)
@@ -353,21 +575,26 @@ function functionsModule.Init(env)
         local hrp = lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart")
         if not hrp then return state end
 
+        -- 獲取所有玩家狀態
         for _, v in pairs(Players:GetPlayers()) do
-            if v ~= lplr and v.Team ~= lplr.Team and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+            if v ~= lplr and v.Team ~= lplr.Team and v.Character and v.Character:FindFirstChild("HumanoidRootPart") and v.Character:FindFirstChild("Humanoid") then
                 local targetHrp = v.Character.HumanoidRootPart
-                local dist = (hrp.Position - targetHrp.Position).Magnitude
-                local threat = {hrp = targetHrp, dist = dist, player = v}
-                table.insert(state.targets, threat)
-                if not state.nearestThreat or dist < state.nearestThreat.dist then
-                    state.nearestThreat = threat
-                end
-                if dist < 20 then
-                    state.isBeingTargeted = true
+                local targetHum = v.Character.Humanoid
+                if targetHum.Health > 0 then
+                    local dist = (hrp.Position - targetHrp.Position).Magnitude
+                    local threat = {hrp = targetHrp, dist = dist, player = v, type = "PLAYER", part = targetHrp}
+                    table.insert(state.targets, threat)
+                    if not state.nearestThreat or dist < state.nearestThreat.dist then
+                        state.nearestThreat = threat
+                    end
+                    if dist < 25 then
+                        state.isBeingTargeted = true
+                    end
                 end
             end
         end
 
+        -- 搜尋重要物件 (資源、床、方塊)
         local searchFolders = {
             workspace:FindFirstChild("ItemDrops"),
             workspace:FindFirstChild("Generators"),
@@ -379,26 +606,30 @@ function functionsModule.Init(env)
         }
 
         local function checkPart(v)
+            if not v:IsA("BasePart") and not v:IsA("Model") then return end
             local name = v.Name:lower()
-            if name:find("diamond") or name:find("emerald") or name:find("iron") then
-                local p = v:IsA("BasePart") and v or v:FindFirstChildWhichIsA("BasePart", true)
-                if p then
-                    table.insert(state.resources, {part = p, name = v.Name, dist = (hrp.Position - p.Position).Magnitude})
-                end
+            local p = v:IsA("BasePart") and v or v:FindFirstChildWhichIsA("BasePart", true)
+            if not p then return end
+
+            local dist = (hrp.Position - p.Position).Magnitude
+
+            -- 資源偵測
+            if name:find("diamond") or name:find("emerald") or name:find("iron") or name:find("gold") then
+                table.insert(state.resources, {part = p, name = v.Name, dist = dist, type = "RESOURCE"})
             end
+            
+            -- 床位偵測
             if name:find("bed") then
-                local p = v:IsA("BasePart") and v or v:FindFirstChildWhichIsA("BasePart", true)
-                if p then
-                    table.insert(state.beds, {part = p, dist = (hrp.Position - p.Position).Magnitude})
-                end
+                table.insert(state.beds, {part = p, name = v.Name, dist = dist, type = "BED"})
             end
         end
 
+        -- 遍歷資料夾
         for _, folder in ipairs(searchFolders) do
             if folder then
                 for _, v in pairs(folder:GetChildren()) do
                     checkPart(v)
-                    -- 一層子目錄檢查
+                    -- 檢查二級子目錄
                     if v:IsA("Model") or v:IsA("Folder") then
                         for _, sub in pairs(v:GetChildren()) do
                             checkPart(sub)
@@ -408,27 +639,19 @@ function functionsModule.Init(env)
             end
         end
 
+        -- 全域兜底掃描 (如果指定資料夾沒找到)
         if #state.resources == 0 or #state.beds == 0 then
             for _, v in pairs(workspace:GetChildren()) do
                 if v:IsA("BasePart") or v:IsA("Model") then
-                    local name = v.Name:lower()
-                    if name:find("diamond") or name:find("emerald") or name:find("iron") then
-                        local p = v:IsA("BasePart") and v or v:FindFirstChildWhichIsA("BasePart", true)
-                        if p then
-                            table.insert(state.resources, {part = p, name = v.Name, dist = (hrp.Position - p.Position).Magnitude})
-                        end
-                    end
-                    if name:find("bed") then
-                        local p = v:IsA("BasePart") and v or v:FindFirstChildWhichIsA("BasePart", true)
-                        if p then
-                            table.insert(state.beds, {part = p, dist = (hrp.Position - p.Position).Magnitude})
-                        end
-                    end
+                    checkPart(v)
                 end
             end
         end
         
+        -- 排序：距離由近到遠
         table.sort(state.resources, function(a, b) return a.dist < b.dist end)
+        table.sort(state.beds, function(a, b) return a.dist < b.dist end)
+        table.sort(state.targets, function(a, b) return a.dist < b.dist end)
         
         return state
     end

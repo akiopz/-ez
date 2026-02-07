@@ -23,20 +23,29 @@ function GuiUtils.Init(Gui)
         local TBCorner = Instance.new("UICorner")
         local Page = Instance.new("ScrollingFrame")
         local PageList = Instance.new("UIListLayout")
+        local TabStroke = Instance.new("UIStroke")
 
         Gui.ApplyProperties(TabButton, {
             Name = name .. "Button",
             Parent = Gui.TabContainer,
-            BackgroundColor3 = Color3_fromRGB(28, 28, 28),
+            BackgroundColor3 = Color3_fromRGB(15, 15, 25),
             BorderSizePixel = 0,
-            Size = UDim2_new(0, 140, 0, 32),
-            Font = Enum_Font.GothamMedium,
-            Text = name,
-            TextColor3 = Color3_fromRGB(180, 180, 180),
+            Size = UDim2_new(0, 140, 0, 36), -- 稍微增加高度
+            Font = Enum_Font.Code, -- 使用程式碼字體
+            Text = "> " .. name, -- 加入科幻前綴
+            TextColor3 = Color3_fromRGB(100, 100, 150),
             TextSize = 13
         })
         
-        TBCorner.CornerRadius = UDim.new(0, 4)
+        ApplyProperties(TabStroke, {
+            Color = Color3_fromRGB(40, 40, 60),
+            Thickness = 1,
+            Transparency = 0.5,
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+            Parent = TabButton
+        })
+        
+        TBCorner.CornerRadius = UDim.new(0, 2) -- 更硬朗的圓角
         TBCorner.Parent = TabButton
         
         Gui.ApplyProperties(Page, {
@@ -54,14 +63,45 @@ function GuiUtils.Init(Gui)
         PageList.SortOrder = Enum.SortOrder.LayoutOrder
         
         local function Switch()
+            if Page.Visible then return end -- 防止重複點擊
+
             for _, t in pairs(Tabs) do
-                t.Button.BackgroundColor3 = Color3_fromRGB(28, 28, 28)
-                t.Button.TextColor3 = Color3_fromRGB(180, 180, 180)
+                t.Button.BackgroundColor3 = Color3_fromRGB(15, 15, 25)
+                t.Button.TextColor3 = Color3_fromRGB(100, 100, 150)
+                local s = t.Button:FindFirstChildOfClass("UIStroke")
+                if s then s.Color = Color3_fromRGB(40, 40, 60) end
                 t.Page.Visible = false
             end
-            TabButton.BackgroundColor3 = Color3_fromRGB(60, 120, 255)
-            TabButton.TextColor3 = Color3_fromRGB(255, 255, 255)
+            
+            TabButton.BackgroundColor3 = Color3_fromRGB(25, 30, 60)
+            TabButton.TextColor3 = Color3_fromRGB(0, 255, 255)
+            local stroke = TabButton:FindFirstChildOfClass("UIStroke")
+            if stroke then stroke.Color = Color3_fromRGB(0, 150, 255) end
+            
+            -- 切換時的淡入動畫
             Page.Visible = true
+            local canvasGroup = Page:FindFirstChildOfClass("CanvasGroup") or Instance.new("CanvasGroup")
+            if not canvasGroup.Parent then
+                canvasGroup.Size = UDim2_new(1, 0, 1, 0)
+                canvasGroup.BackgroundTransparency = 1
+                canvasGroup.Parent = Page
+                -- 將所有原本在 Page 裡的子物件移到 CanvasGroup
+                for _, child in pairs(Page:GetChildren()) do
+                    if child ~= canvasGroup and not child:IsA("UIListLayout") then
+                        child.Parent = canvasGroup
+                    end
+                end
+                PageList.Parent = canvasGroup
+            end
+
+            canvasGroup.GroupTransparency = 1
+            task.spawn(function()
+                for i = 1, 0, -0.1 do
+                    canvasGroup.GroupTransparency = i
+                    task.wait(0.01)
+                end
+                canvasGroup.GroupTransparency = 0
+            end)
         end
         
         Gui.SafeConnect(TabButton.MouseButton1Click, Switch)
@@ -78,51 +118,104 @@ function GuiUtils.Init(Gui)
         local targetTab = Tabs[tabName]
         if not targetTab then return end
         
+        -- 獲取或創建內容容器 (CanvasGroup)
+        local container = targetTab.Page:FindFirstChildOfClass("CanvasGroup")
+        if not container then
+            container = Instance.new("CanvasGroup")
+            container.Size = UDim2_new(1, 0, 1, 0)
+            container.BackgroundTransparency = 1
+            container.Parent = targetTab.Page
+            targetTab.List.Parent = container
+        end
+
         local Button = Instance.new("TextButton")
         local BCorner = Instance.new("UICorner")
+        local BStroke = Instance.new("UIStroke")
         local DescLabel = Instance.new("TextLabel")
+        local StatusLight = Instance.new("Frame")
         
         Gui.ApplyProperties(Button, {
             Name = name,
-            Parent = targetTab.Page,
-            BackgroundColor3 = Color3_fromRGB(24, 24, 24),
-            Size = UDim2_new(0.96, 0, 0, 70),
+            Parent = container,
+            BackgroundColor3 = Color3_fromRGB(20, 20, 35),
+            Size = UDim2_new(0.96, 0, 0, 60),
             Font = Enum_Font.GothamBold,
             Text = "  " .. name,
             TextColor3 = Color3_fromRGB(255, 255, 255),
-            TextSize = 15,
+            TextSize = 14,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextYAlignment = Enum.TextYAlignment.Top,
             AutoButtonColor = false,
             BorderSizePixel = 0
         })
         
-        BCorner.CornerRadius = UDim.new(0, 8)
+        ApplyProperties(BStroke, {
+            Color = Color3_fromRGB(50, 50, 80),
+            Thickness = 1,
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+            Parent = Button
+        })
+        
+        BCorner.CornerRadius = UDim.new(0, 2)
         BCorner.Parent = Button
         
+        -- 狀態指示燈
+        ApplyProperties(StatusLight, {
+            Name = "StatusLight",
+            Parent = Button,
+            BackgroundColor3 = Color3_fromRGB(60, 60, 80),
+            BorderSizePixel = 0,
+            Position = UDim2_new(0, 5, 0, 8),
+            Size = UDim2_new(0, 2, 0, 12)
+        })
+
         Gui.ApplyProperties(DescLabel, {
             Parent = Button,
             BackgroundTransparency = 1,
-            Position = UDim2_new(0, 10, 0, 35),
-            Size = UDim2_new(1, -20, 0, 25),
-            Font = Enum_Font.Gotham,
-            Text = desc,
-            TextColor3 = Color3_fromRGB(130, 130, 130),
-            TextSize = 12,
+            Position = UDim2_new(0, 12, 0, 30),
+            Size = UDim2_new(1, -24, 0, 25),
+            Font = Enum_Font.Code,
+            Text = "// " .. desc,
+            TextColor3 = Color3_fromRGB(100, 100, 130),
+            TextSize = 11,
             TextXAlignment = Enum.TextXAlignment.Left,
-            TextWrapped = true,
-            TextTransparency = 0.2
+            TextWrapped = true
         })
 
+        local active = false
+        local isProcessing = false
         Gui.SafeConnect(Button.MouseButton1Click, function()
-            local success, err = pcall(loadFunc)
+            if isProcessing then return end
+            isProcessing = true
+            
+            active = not active
+            local success, err = pcall(loadFunc, active)
+            
             if success then
-                local oldColor = Button.BackgroundColor3
-                Button.BackgroundColor3 = Color3_fromRGB(46, 204, 113)
-                task.delay(0.5, function() Button.BackgroundColor3 = oldColor end)
+                -- 按鈕反饋動畫
+                task.spawn(function()
+                    local targetColor = active and Color3_fromRGB(30, 40, 80) or Color3_fromRGB(20, 20, 35)
+                    local targetStroke = active and Color3_fromRGB(0, 150, 255) or Color3_fromRGB(50, 50, 80)
+                    
+                    -- 簡單的顏色過渡 (可以根據需要增加更複雜的補間動畫)
+                    Button.BackgroundColor3 = targetColor
+                    BStroke.Color = targetStroke
+                    
+                    if active then
+                        StatusLight.BackgroundColor3 = Color3_fromRGB(0, 255, 255)
+                        DescLabel.TextColor3 = Color3_fromRGB(150, 150, 200)
+                    else
+                        StatusLight.BackgroundColor3 = Color3_fromRGB(60, 60, 80)
+                        DescLabel.TextColor3 = Color3_fromRGB(100, 100, 130)
+                    end
+                end)
             else
-                if Notify then Notify("錯誤", tostring(err), "Error") end
+                active = not active
+                if Notify then Notify("系統錯誤", tostring(err), "Error") end
             end
+            
+            task.wait(0.1) -- 防止過快點擊
+            isProcessing = false
         end)
         
         targetTab.Page.CanvasSize = UDim2_new(0, 0, 0, targetTab.List.AbsoluteContentSize.Y + 20)
