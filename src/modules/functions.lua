@@ -38,10 +38,7 @@ function FunctionsModule.Init(env)
                                     local predictedPos = ehrp.Position + (ehrp.Velocity * 0.1)
                                     local dist = (hrp.Position - predictedPos).Magnitude
                                     if dist < maxDist then
-                                        local dotProduct = hrp.CFrame.LookVector:Dot((ehrp.Position - hrp.Position).Unit)
-                                        if dotProduct > -0.5 then
-                                            table.insert(targets, player)
-                                        end
+                                        table.insert(targets, player)
                                     end
                                 end
                             end
@@ -569,9 +566,13 @@ function FunctionsModule.Init(env)
             end
         end
         for _, v in ipairs(workspace:GetDescendants()) do
-            if v:IsA("BasePart") and (v.Name:lower():find("diamond") or v.Name:lower():find("emerald")) then
-                local dist = (myPos - v.Position).Magnitude
-                if dist < 100 then table.insert(state.resources, {part = v, dist = dist, name = v.Name}) end
+            if v:IsA("BasePart") then
+                local name = v.Name:lower()
+                -- Bedwars 資源通常是 Generator 或是掉落在地上的 Part
+                if name:find("diamond") or name:find("emerald") or name:find("iron") or name:find("gold") then
+                    local dist = (myPos - v.Position).Magnitude
+                    if dist < 100 then table.insert(state.resources, {part = v, dist = dist, name = v.Name}) end
+                end
             end
         end
         table.sort(state.resources, function(a, b) return a.dist < b.dist end)

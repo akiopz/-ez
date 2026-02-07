@@ -16,10 +16,16 @@ function AIModule.Init(CatFunctions, Blatant)
     local function ToggleGodMode(state)
         _G.GodModeAI = state
         if _G.GodModeAI then
+            _G.KillAuraRange = 25
+            _G.KillAuraMaxTargets = 5
             CatFunctions.ToggleKillAura(true)
             CatFunctions.ToggleNoFall(true)
             CatFunctions.ToggleReach(true)
             CatFunctions.ToggleAutoToolFastBreak(true)
+            _G.AutoBuyPro = true
+            _G.AutoArmor = true
+            Blatant.ToggleAutoBuyPro(true)
+            Blatant.ToggleAutoArmor(true)
             
             task_spawn(function()
                 while _G.GodModeAI and task_wait(0.02) do
@@ -94,10 +100,16 @@ function AIModule.Init(CatFunctions, Blatant)
     local function ToggleAutoPlay(state)
         _G.AI_Enabled = state
         if _G.AI_Enabled then
+            _G.KillAuraRange = 22
+            _G.KillAuraMaxTargets = 3
             CatFunctions.ToggleKillAura(true)
             CatFunctions.ToggleNoFall(true)
             CatFunctions.ToggleAutoToolFastBreak(true)
             CatFunctions.ToggleSpeed(true) -- 開啟速度以利追擊
+            _G.AutoBuyPro = true
+            _G.AutoArmor = true
+            Blatant.ToggleAutoBuyPro(true)
+            Blatant.ToggleAutoArmor(true)
             
             task_spawn(function()
                 while _G.AI_Enabled and task_wait(0.1) do
@@ -108,11 +120,40 @@ function AIModule.Init(CatFunctions, Blatant)
                         local battlefield = CatFunctions.GetBattlefieldState()
                         local target = nil
                         
-                        -- 優先級：1. 最近的威脅 (玩家) 2. 最近的資源 3. 敵方床位
-                        if battlefield.nearestThreat and battlefield.nearestThreat.dist < 50 then
+                        -- 優先級：
+                        -- 1. 附近的資源 (如果距離小於 15，優先撿取)
+                        -- 2. 最近的威脅 (玩家)
+                        -- 3. 遠處的資源 (鑽石/綠寶石優先)
+                        -- 4. 敵方床位
+                        
+                        local nearResource = nil
+                        for _, res in ipairs(battlefield.resources) do
+                            if res.dist < 15 then
+                                nearResource = res
+                                break
+                            end
+                        end
+
+                        if nearResource then
+                             target = {part = nearResource.part, type = "RESOURCE"}
+                             -- 如果已經很近了，稍微停一下確保收集到
+                             if nearResource.dist < 5 then
+                                 hum:Move(Vector3_new(0,0,0), true)
+                                 task_wait(0.5)
+                             end
+                        elseif battlefield.nearestThreat and battlefield.nearestThreat.dist < 60 then
                             target = {part = battlefield.nearestThreat.hrp, type = "PLAYER"}
                         elseif #battlefield.resources > 0 then
-                            target = {part = battlefield.resources[1].part, type = "RESOURCE"}
+                            -- 優先尋找鑽石或綠寶石
+                            local bestRes = battlefield.resources[1]
+                            for _, res in ipairs(battlefield.resources) do
+                                local name = res.name:lower()
+                                if name:find("emerald") or name:find("diamond") then
+                                    bestRes = res
+                                    break
+                                end
+                            end
+                            target = {part = bestRes.part, type = "RESOURCE"}
                         else
                             -- 尋找敵方床位
                             for _, v in ipairs(workspace:GetDescendants()) do
@@ -152,14 +193,6 @@ function AIModule.Init(CatFunctions, Blatant)
                                 -- Pathfinding 失敗時使用基礎移動
                                 local moveDir = (target.part.Position - hrp.Position).Unit
                                 hum:Move(moveDir, true)
-                            end
-
-                            -- 自動購買與裝備管理
-                            if _G.AutoBuyPro == false then -- 如果沒開專業購買，AI 自行購買
-                                Blatant.ToggleAutoBuyPro(true)
-                            end
-                            if _G.AutoArmor == false then
-                                Blatant.ToggleAutoArmor(true)
                             end
 
                             -- 防掉落 AI 回歸邏輯 (Anti-Void AI)

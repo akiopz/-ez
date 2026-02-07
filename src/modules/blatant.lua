@@ -228,16 +228,15 @@ function BlatantModule.Init(Gui, Notify)
             _G.AutoBuyPro = state
             if not _G.AutoBuyPro then return end
             task_spawn(function()
-                -- 優先級順序
+                -- 優先級順序 (Bedwars 實際 ID 通常為 emerald_sword, diamond_sword 等)
                 local priority = {
-                    {id = "sword_emerald", cost = 20, currency = "emerald"},
-                    {id = "sword_diamond", cost = 4, currency = "emerald"},
-                    {id = "sword_iron", cost = 70, currency = "iron"},
-                    {id = "armor_emerald", cost = 40, currency = "emerald"},
-                    {id = "armor_diamond", cost = 8, currency = "emerald"},
-                    {id = "armor_iron", cost = 120, currency = "iron"},
-                    {id = "protection_block", cost = 8, currency = "emerald"},
-                    {id = "building_block", cost = 16, currency = "iron"}
+                    {id = "emerald_sword", cost = 20, currency = "emerald"},
+                    {id = "diamond_sword", cost = 4, currency = "emerald"},
+                    {id = "iron_sword", cost = 70, currency = "iron"},
+                    {id = "emerald_armor", cost = 40, currency = "emerald"},
+                    {id = "diamond_armor", cost = 8, currency = "emerald"},
+                    {id = "iron_armor", cost = 120, currency = "iron"},
+                    {id = "wool_white", cost = 16, currency = "iron"}
                 }
                 
                 while _G.AutoBuyPro and task_wait(3) do
