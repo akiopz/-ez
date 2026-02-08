@@ -29,43 +29,82 @@ local load_func = (env_global.loadstring or env_global.load or loadstring or loa
 
 -- [[ 強力注入與環境清理 ]]
 local function ForceClearGlobals()
-    local blacklisted = {"CombatModule", "AimbotEnabled", "SilentAimEnabled", "ESPEnabled"}
+    local blacklisted = {
+        "CombatModule", "AimbotEnabled", "SilentAimEnabled", "ESPEnabled",
+        "AimbotFOV", "SilentAimHitChance", "ESPColor", "ESPVisibleColor"
+    }
     for _, name in ipairs(blacklisted) do
         env_global[name] = nil
     end
-    print("[Halol] 環境已清理，準備強力注入...")
+    
+    -- 清理舊的 UI 殘留 (如果有的話)
+    pcall(function()
+        local coreGui = game:GetService("CoreGui")
+        if coreGui:FindFirstChild("HalolESP") then coreGui.HalolESP:Destroy() end
+    end)
+    
+    print("[Halol] 環境已深度清理，準備強力注入...")
+end
+
+-- [[ 早鳥反偵測 Hook ]]
+-- 在加載主模組前先建立防線
+local function EarlyBirdBypass()
+    if not hookmetamethod then return end
+    
+    print("[Halol] 正在啟動早鳥反偵測系統...")
+    local oldNamecall
+    oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        local args = {...}
+        
+        -- 攔截常見的偵測 Remote
+        if (method == "FireServer" or method == "InvokeServer") and not checkcaller() then
+            local remoteName = tostring(self):lower()
+            if remoteName:find("cheat") or remoteName:find("exploit") or remoteName:find("detect") or remoteName:find("flag") then
+                warn("[Halol EarlyBird] 攔截到偵測請求: " .. tostring(self))
+                return nil
+            end
+        end
+        
+        return oldNamecall(self, ...)
+    end))
 end
 
 local function LoadCombat(content, source)
-    print("[Halol] 正在解析戰鬥模組內容 (來源: " .. source .. ")")
+    print("[Halol] 正在強力解析戰鬥模組 (來源: " .. source .. ")")
     if not load_func then
-        warn("[Halol] 錯誤: 無法找到 loadstring 函數")
+        warn("[Halol] 錯誤: 執行器不支援 loadstring")
         return false
     end
     
-    -- 嘗試清理舊環境防止衝突
+    -- 1. 執行環境清理
     ForceClearGlobals()
     
+    -- 2. 啟動早鳥 Hook
+    EarlyBirdBypass()
+    
+    -- 3. 解析與執行
     local func, err = load_func(content)
     if func then
-        print("[Halol] 正在執行戰鬥模組代碼...")
-        -- 使用 task.spawn 隔離執行緒，防止主執行緒報錯影響加載
+        print("[Halol] 正在隔離執行緒並注入代碼...")
         local success, result
         task.spawn(function()
+            -- 使用 pcall 包裹整個執行過程
             success, result = pcall(func)
             if success then
                 CombatModule = result
-                print("[Halol] 戰鬥模組加載成功")
-                Notify("強力注入", "戰鬥模組已從 " .. source .. " 強力加載", 2)
+                print("[Halol] 戰鬥模組強力注入完成")
+                Notify("強力注入", "戰鬥模組已從 " .. source .. " 成功注入遊戲", 2)
             else
-                warn("[Halol] 戰鬥模組執行錯誤: " .. tostring(result))
+                warn("[Halol] 注入過程出錯: " .. tostring(result))
+                Notify("強力注入", "注入失敗: " .. tostring(result), 5)
             end
         end)
-        -- 等待一小段時間讓 spawn 執行
-        task.wait(0.1)
+        
+        task.wait(0.2)
         return true
     else
-        warn("[Halol] 戰鬥模組語法錯誤 (" .. source .. "): " .. tostring(err))
+        warn("[Halol] 語法解析錯誤 (" .. source .. "): " .. tostring(err))
         return false
     end
 end
@@ -259,6 +298,15 @@ task.spawn(function()
                 combatActions.ToggleChatSpam(state)
             end, Notify, false)
 
+            -- [[ 其他透視與環境 (可放進安全或另建) ]]
+            Utils.AddScript("安全", "骨骼透視 (Skeleton)", "顯示玩家人形骨骼結構", function(state)
+                combatActions.ToggleESPSkeleton(state)
+            end, Notify, false)
+
+            Utils.AddScript("安全", "離屏指示器 (Arrows)", "在螢幕邊緣指示敵人位置", function(state)
+                combatActions.ToggleESPOffscreenArrows(state)
+            end, Notify, false)
+            
             print("[Halol] 射擊類功能已成功整合")
             Notify("射擊模組", "射擊類功能已整合至主介面", 3)
         else

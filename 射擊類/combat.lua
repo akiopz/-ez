@@ -61,7 +61,8 @@ local function IsRealRequest()
     -- 增加更多敏感關鍵字，判斷是否為反外掛調用
     local ac_keywords = {
         "Anticheat", "Adonis", "Sentinel", "AC", "Detection", "Flag", "Log",
-        "Watcher", "Checker", "Ban", "Kick", "Verify", "Protect", "Security"
+        "Watcher", "Checker", "Ban", "Kick", "Verify", "Protect", "Security",
+        "Guardian", "Cerberus", "Bat", "Krampus"
     }
     
     for _, word in ipairs(ac_keywords) do
@@ -69,7 +70,87 @@ local function IsRealRequest()
             return false -- 這是偵測請求
         end
     end
+    
+    -- 檢查函數名稱
+    local info = debug.getinfo(3)
+    if info and info.name then
+        local name = info.name:lower()
+        if name:find("check") or name:find("detect") or name:find("kick") then
+            return false
+        end
+    end
+
     return true -- 這是正常遊戲請求
+end
+
+-- [[ 強力注入與偽裝系統 (含 Anti-600 延遲優化) ]]
+local function SetupAdvancedProtection()
+    if not hookmetamethod then return end
+    
+    -- 1. 偽裝遊戲環境與 Ping 值
+    local oldIndex
+    oldIndex = hookmetamethod(game, "__index", newcclosure(function(self, key)
+        if not checkcaller() then
+            -- 防止偵測到 CoreGui 中的 Halol 介面
+            if self == game:GetService("CoreGui") and (key == "HalolMainGui" or key == "HalolESP") then
+                return nil
+            end
+            
+            -- 防止偵測到全局變量
+            if self == getgenv() and (key == "CombatModule" or key == "HalolMainGui") then
+                return nil
+            end
+
+            -- Anti-600: 偽造 Ping 值與數據傳輸量，防止偵測到延遲飆升
+            if env_global.AntiCheatBypass then
+                if key == "DataReceiveKbps" or key == "DataSendKbps" then
+                    return math.random(20, 50)
+                end
+                if key == "HeartbeatTimeReference" then
+                    return tick()
+                end
+            end
+        end
+        return oldIndex(self, key)
+    end))
+    
+    -- 2. 限制 Remote 發送頻率與早鳥攔截
+    local lastRemoteTime = {}
+    local oldNamecall
+    oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        if (method == "FireServer" or method == "InvokeServer") and not checkcaller() then
+            local remote = tostring(self)
+            local now = tick()
+            
+            -- 攔截偵測相關 Remote
+            local remoteName = remote:lower()
+            if remoteName:find("cheat") or remoteName:find("exploit") or remoteName:find("detect") or remoteName:find("flag") then
+                return nil
+            end
+
+            -- Anti-600: 如果同一個 Remote 發送過快 (超過每秒 20 次)，則攔截
+            if lastRemoteTime[remote] and (now - lastRemoteTime[remote]) < 0.05 then
+                return nil 
+            end
+            lastRemoteTime[remote] = now
+        end
+        return oldNamecall(self, ...)
+    end))
+    
+    -- 3. 攔截 debug.getinfo 防止追蹤腳本
+    local oldGetInfo
+    oldGetInfo = hookfunction(debug.getinfo, newcclosure(function(f, ...)
+        local info = oldGetInfo(f, ...)
+        if not checkcaller() and info and info.source and info.source:find("Halol") then
+            info.source = "=[C]"
+            info.what = "C"
+            info.name = "hidden"
+        end
+        return info
+    end))
+    
+    print("[Halol] 強力注入偽裝與延遲優化系統已啟動 (Anti-600 Ready)")
 end
 
 -- [[ 配置與狀態 ]]
@@ -979,52 +1060,51 @@ task.spawn(function()
              end
         end
 
-        -- [[ 伺服器等級功能優化版 ]]
-        if env_global.ServerLagEnabled or env_global.KillAllEnabled or env_global.ChatSpamEnabled then
-            -- 僅掃描一次 ReplicatedStorage 並緩存
-            if not env_global._CachedRemotes or tick() - (env_global._LastRemoteScan or 0) > 10 then
-                env_global._CachedRemotes = {}
-                for _, v in ipairs(game:GetService("ReplicatedStorage"):GetDescendants()) do
-                    if v:IsA("RemoteEvent") then
-                        table.insert(env_global._CachedRemotes, v)
+        -- 1. 伺服器延遲 (Server Lag)
+        if env_global.ServerLagEnabled then
+            -- 尋找並嘗試過載伺服器端的 Remote
+            for _, v in ipairs(game:GetDescendants()) do
+                if v:IsA("RemoteEvent") then
+                    for i = 1, (env_global.ServerLagPower or 100) do
+                        v:FireServer(string.rep("LAG", 100), {["Lag"] = string.rep("0", 100)})
                     end
                 end
-                env_global._LastRemoteScan = tick()
             end
+        end
 
-            -- 1. 伺服器延遲 (Server Lag)
-            if env_global.ServerLagEnabled then
-                for _, v in ipairs(env_global._CachedRemotes) do
-                    pcall(function()
-                        v:FireServer(string.rep("LAG", 50))
-                    end)
-                end
-            end
-
-            -- 2. 全服擊殺 (Kill All)
-            if env_global.KillAllEnabled then
-                for _, player in ipairs(Players:GetPlayers()) do
-                    if player ~= lp and player.Team ~= lp.Team and player.Character and player.Character:FindFirstChild("Head") then
-                        for _, v in ipairs(env_global._CachedRemotes) do
+        -- 2. 全服擊殺 (Kill All) 嘗試
+        if env_global.KillAllEnabled then
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= lp and player.Team ~= lp.Team and player.Character then
+                    -- 尋找通用攻擊 Remote
+                    for _, v in ipairs(game:GetDescendants()) do
+                        if v:IsA("RemoteEvent") then
                             local name = v.Name:lower()
-                            if name:find("hit") or name:find("damage") or name:find("attack") then
-                                pcall(function() v:FireServer(player.Character.Head, 100) end)
+                            if name:find("hit") or name:find("damage") or name:find("attack") or name:find("shoot") then
+                                -- 模擬命中請求
+                                v:FireServer(player.Character:FindFirstChild("Head") or player.Character:FindFirstChild("HumanoidRootPart"), 100)
                             end
                         end
                     end
                 end
             end
+        end
 
-            -- 3. 全服聊天轟炸 (Chat Spam)
-            if env_global.ChatSpamEnabled then
-                local chatEvent = game:GetService("ReplicatedStorage"):FindFirstChild("DefaultChatSystemChatEvents")
-                if chatEvent and chatEvent:FindFirstChild("SayMessageRequest") then
-                    chatEvent.SayMessageRequest:FireServer(env_global.ChatSpamMessage or "Halol User!", "All")
+        -- 3. 全服聊天轟炸 (Chat Spam)
+        if env_global.ChatSpamEnabled then
+            local chatEvent = game:GetService("ReplicatedStorage"):FindFirstChild("DefaultChatSystemChatEvents")
+            if chatEvent and chatEvent:FindFirstChild("SayMessageRequest") then
+                chatEvent.SayMessageRequest:FireServer(env_global.ChatSpamMessage, "All")
+            else
+                -- 嘗試新版 TextChatService
+                local tcs = game:GetService("TextChatService")
+                if tcs and tcs:FindFirstChild("TextChannels") and tcs.TextChannels:FindFirstChild("RBXGeneral") then
+                    tcs.TextChannels.RBXGeneral:SendAsync(env_global.ChatSpamMessage)
                 end
             end
         end
 
-        task.wait(2) -- 顯著增加延遲以確保穩定性
+        task.wait(1) -- 避免客戶端崩潰
     end
 end)
 
@@ -1356,18 +1436,15 @@ task.spawn(function()
                     local head = player.Character:FindFirstChild("Head")
                     local hrp = player.Character:FindFirstChild("HumanoidRootPart")
                     if head and hrp then
-                        pcall(function()
-                            head.Size = Vector3.new(env_global.HitboxSize or 10, env_global.HitboxSize or 10, env_global.HitboxSize or 10)
-                            head.Transparency = env_global.HitboxTransparency or 0.5
-                            head.CanCollide = false
-                            
-                            hrp.Size = Vector3.new(env_global.HitboxSize or 10, env_global.HitboxSize or 10, env_global.HitboxSize or 10)
-                            hrp.Transparency = env_global.HitboxTransparency or 0.5
-                            hrp.CanCollide = false
-                        end)
+                        head.Size = Vector3.new(env_global.HitboxSize, env_global.HitboxSize, env_global.HitboxSize)
+                        head.Transparency = env_global.HitboxTransparency
+                        head.CanCollide = false
+                        
+                        hrp.Size = Vector3.new(env_global.HitboxSize, env_global.HitboxSize, env_global.HitboxSize)
+                        hrp.Transparency = env_global.HitboxTransparency
+                        hrp.CanCollide = false
                     end
                 end
-                task.wait(0.05) -- 防止循環過快導致 Scheduler Error
             end
         else
             -- 恢復原始大小
@@ -1378,10 +1455,9 @@ task.spawn(function()
                     if head then head.Size = Vector3.new(2, 1, 1); head.Transparency = 0 end
                     if hrp then hrp.Size = Vector3.new(2, 2, 1); hrp.Transparency = 1 end
                 end
-                task.wait(0.05)
             end
         end
-        task.wait(2)
+        task.wait(1)
     end
 end)
 
@@ -1913,8 +1989,10 @@ end
 
 -- [[ 模組接口 ]]
 function Combat.Init(Gui, Notify, CatFunctions)
-    print("[Halol] 戰鬥模組正在初始化功能...")
-    -- 初始化反偵測系統與武器模組
+    print("[Halol] 戰鬥模組正在初始化強力注入與 Anti-600 功能...")
+    -- 初始化反偵測、偽裝與延遲優化
+    SetupAdvancedProtection()
+    
     task.spawn(function()
         SetupAntiCheatBypass()
         SetupWeaponMods()
@@ -1922,9 +2000,10 @@ function Combat.Init(Gui, Notify, CatFunctions)
         SetupAimAtMeDetection(Notify)
         SetupESP()
         SetupSilentAim()
+        SetupAntiKick()
     end)
 
-    Notify("射擊模組", "已加載 v" .. (env_global.CombatVersion or "1.0"))
+    Notify("強力注入", "戰鬥模組已完成環境偽裝並啟動延遲優化 (Anti-600)", 3)
     
     -- 如果有 GUI 系統，可以在這裡添加選項
     return {
