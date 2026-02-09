@@ -13,6 +13,8 @@ local workspace = workspace or env_global.workspace
 local task = task or env_global.task
 local Vector3 = Vector3 or env_global.Vector3
 local CFrame = CFrame or env_global.CFrame
+local Region3 = Region3 or env_global.Region3
+local RaycastParams = RaycastParams or env_global.RaycastParams
 local math = math or env_global.math
 local table = table or env_global.table
 local pairs = pairs or env_global.pairs
@@ -185,8 +187,8 @@ function BlatantModule.Init(Gui, Notify, CatFunctions)
                         local minDist = 20
                         
                         -- 優化：利用 Region3 僅搜尋附近的物件，大幅提升效能
-                        local region = Region3.new(hrp.Position - Vector3_new(20, 20, 20), hrp.Position + Vector3_new(20, 20, 20))
-                        local parts = workspace:FindPartsInRegion3(region, char, 100)
+                        local region = Region3 and Region3.new and Region3.new(hrp.Position - Vector3_new(20, 20, 20), hrp.Position + Vector3_new(20, 20, 20))
+                        local parts = region and workspace:FindPartsInRegion3(region, char, 100) or {}
                         
                         for _, v in ipairs(parts) do
                             if v:IsA("BasePart") and v.Name:lower():find("chest") then

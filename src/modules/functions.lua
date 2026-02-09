@@ -174,6 +174,8 @@ local workspace = workspace or env_global.workspace
 local task = task or env_global.task
 local Vector3 = Vector3 or env_global.Vector3
 local Ray = Ray or env_global.Ray
+local RaycastParams = RaycastParams or env_global.RaycastParams
+local Region3 = Region3 or env_global.Region3
 local math = math or env_global.math
 local tick = tick or env_global.tick or os.time
 local pairs = pairs or env_global.pairs
@@ -206,11 +208,13 @@ local Vector3_new = Vector3.new
 local CFrame_new = CFrame.new
 local Color3_fromRGB = Color3.fromRGB
 local Color3_fromHSV = Color3.fromHSV
-local RaycastParams_new = RaycastParams.new
+local RaycastParams_new = RaycastParams and RaycastParams.new
 
 -- 預創建常用對象以減少 GC 壓力
-local sharedRaycastParams = RaycastParams_new()
-sharedRaycastParams.FilterType = Enum.RaycastFilterType.Exclude
+local sharedRaycastParams = RaycastParams_new and RaycastParams_new()
+if sharedRaycastParams then
+    sharedRaycastParams.FilterType = Enum.RaycastFilterType.Exclude
+end
 
 function functionsModule.Init(env)
     local CatFunctions = {}
