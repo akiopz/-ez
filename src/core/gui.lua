@@ -18,6 +18,7 @@ local gethui = (getgenv().gethui or function() return game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
 
 local lp = Players.LocalPlayer
 local Color3_fromRGB = Color3.fromRGB
@@ -121,22 +122,47 @@ function GuiModule.CreateMainGui()
     })
 
     ApplyProperties(MainFrame, {
-        Name = RandomString(math.random(10, 20)),
+        Name = "MainFrame",
         Parent = ScreenGui,
-        BackgroundColor3 = Color3_fromRGB(10, 10, 12),
-        Position = UDim2_new(0.5, -280, 0.5, -180),
-        Size = UDim2_new(0, 560, 0, 360),
-        ClipsDescendants = false,
-        Active = true,
-        Selectable = true,
+        BackgroundColor3 = Color3_fromRGB(12, 12, 15),
+        BorderSizePixel = 0,
+        Position = UDim2_new(0.5, -275, 0.5, -175),
+        Size = UDim2_new(0, 550, 0, 350),
         ZIndex = 5,
-        BackgroundTransparency = 0.02,
-        Visible = false
+        Visible = false,
+        ClipsDescendants = false
     })
 
+    local MainStroke = Instance.new("UIStroke")
+    ApplyProperties(MainStroke, {
+        Thickness = 1.5,
+        Color = Color3_fromRGB(255, 255, 255),
+        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+        Parent = MainFrame,
+        Transparency = 0.2
+    })
+
+    local MainGradient = Instance.new("UIGradient")
+    MainGradient.Parent = MainStroke
+
     local function ToggleGui()
-        MainFrame.Visible = not MainFrame.Visible
-        ToggleButton.Visible = not MainFrame.Visible
+        local visible = not MainFrame.Visible
+        if visible then
+            MainFrame.Visible = true
+            MainFrame.Size = UDim2_new(0, 500, 0, 300)
+            MainFrame.BackgroundTransparency = 1
+            TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back), {
+                Size = UDim2_new(0, 550, 0, 350),
+                BackgroundTransparency = 0.05
+            }):Play()
+        else
+            TweenService:Create(MainFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quart), {
+                Size = UDim2_new(0, 500, 0, 300),
+                BackgroundTransparency = 1
+            }):Play()
+            task.delay(0.2, function() MainFrame.Visible = false end)
+        end
+        ToggleButton.Visible = not visible
     end
 
     SafeConnect(ToggleButton.MouseButton1Click, ToggleGui)
@@ -171,12 +197,12 @@ function GuiModule.CreateMainGui()
     EnableDragging(ToggleButton, ToggleButton)
 
     ApplyProperties(SidebarBg, {
-        Name = "SidebarBg",
+        Name = "Sidebar",
         Parent = MainFrame,
-        BackgroundColor3 = Color3_fromRGB(13, 13, 16),
+        BackgroundColor3 = Color3_fromRGB(18, 18, 22),
+        BorderSizePixel = 0,
         Position = UDim2_new(0, 0, 0, 0),
         Size = UDim2_new(0, 150, 1, 0),
-        BackgroundTransparency = 0,
         ZIndex = 6
     })
     
@@ -210,28 +236,16 @@ function GuiModule.CreateMainGui()
     MainCorner.CornerRadius = UDim.new(0, 10)
     MainCorner.Parent = MainFrame
 
-    ApplyProperties(RGBLine, {
-        Name = "RGBLine",
-        Parent = MainFrame,
-        BackgroundColor3 = Color3_fromRGB(255, 255, 255),
-        BorderSizePixel = 0,
-        Position = UDim2_new(0, 150, 0, 0),
-        Size = UDim2_new(1, -150, 0, 1),
-        ZIndex = 10,
-        Active = false,
-        BackgroundTransparency = 0.2
-    })
-
     ApplyProperties(Title, {
         Name = "Title",
         Parent = MainFrame,
         BackgroundTransparency = 1,
-        Position = UDim2_new(0, 20, 0, 20),
-        Size = UDim2_new(0, 110, 0, 25),
+        Position = UDim2_new(0, 15, 0, 15),
+        Size = UDim2_new(0, 120, 0, 30),
         Font = Enum.Font.GothamBold,
-        Text = "CAT V4",
+        Text = "HALOL",
         TextColor3 = Color3_fromRGB(255, 255, 255),
-        TextSize = 20,
+        TextSize = 22,
         TextXAlignment = Enum.TextXAlignment.Left,
         ZIndex = 10
     })
@@ -240,12 +254,12 @@ function GuiModule.CreateMainGui()
         Name = "SubTitle",
         Parent = MainFrame,
         BackgroundTransparency = 1,
-        Position = UDim2_new(0, 20, 0, 42),
-        Size = UDim2_new(0, 110, 0, 12),
+        Position = UDim2_new(0, 15, 0, 38),
+        Size = UDim2_new(0, 120, 0, 20),
         Font = Enum.Font.Gotham,
-        Text = "STABLE BUILD",
-        TextColor3 = Color3_fromRGB(120, 120, 130),
-        TextSize = 9,
+        Text = "PREMIUM V5",
+        TextColor3 = Color3_fromRGB(150, 150, 150),
+        TextSize = 12,
         TextXAlignment = Enum.TextXAlignment.Left,
         ZIndex = 10
     })
@@ -335,53 +349,24 @@ function GuiModule.CreateMainGui()
         end)
     end)
 
-    -- RGB 循環邏輯 (優化版本：預計算序列與減少屬性更新)
+    -- RGB 循環邏輯 (優化版本：作用於全局邊框與 Glow)
     task_spawn(function()
         local hue = 0
-        local UIGradient = Instance.new("UIGradient")
-        UIGradient.Parent = RGBLine
-        
-        local MainStroke = Instance.new("UIStroke")
-        ApplyProperties(MainStroke, {
-            Color = Color3_fromRGB(255, 255, 255),
-            Thickness = 1.2,
-            Transparency = 0.4,
-            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-            Parent = MainFrame
-        })
-        
-        local StrokeGradient = Instance.new("UIGradient")
-        StrokeGradient.Parent = MainStroke
-
-        -- 緩存序列以減少每幀對象創建 (如果顏色變化不頻繁，甚至可以預生成一組序列)
-        while ScreenGui and ScreenGui.Parent do
-            if MainFrame.Visible or ToggleButton.Visible then
-                hue = (hue + 1) % 360
-                local color1 = Color3_fromHSV(hue / 360, 0.7, 1)
-                local color2 = Color3_fromHSV(((hue + 60) % 360) / 360, 0.7, 1)
-                
-                local sequence = ColorSequence.new({
-                    ColorSequenceKeypoint.new(0, color1),
-                    ColorSequenceKeypoint.new(1, color2)
+        while task_wait(0.01) do
+            hue = (hue + 1) % 360
+            local color = Color3_fromHSV(hue/360, 0.8, 1)
+            
+            if MainGradient then
+                MainGradient.Color = ColorSequence.new({
+                    ColorSequenceKeypoint.new(0, color),
+                    ColorSequenceKeypoint.new(0.5, Color3_fromHSV((hue+60)%360/360, 0.8, 1)),
+                    ColorSequenceKeypoint.new(1, color)
                 })
-                
-                -- 批量更新屬性
-                UIGradient.Color = sequence
-                StrokeGradient.Color = sequence
-                GlowEffect.ImageColor3 = color1
-                ToggleStroke.Color = color1
-                
-                Title.TextColor3 = color1
-                IconLabel.TextColor3 = color1
-                SidebarLine.BackgroundColor3 = color1
-                
-                -- ToggleButton 呼吸效果 (僅在可見時更新)
-                if ToggleButton.Visible then
-                    ToggleStroke.Transparency = 0.3 + (math.sin(tick() * 2) * 0.2)
-                end
             end
             
-            task_wait(0.05) -- 保持 20 FPS 的 UI 更新頻率，足以保證流暢且不耗資源
+            if GlowEffect then
+                GlowEffect.ImageColor3 = color
+            end
         end
     end)
 
