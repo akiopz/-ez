@@ -76,7 +76,7 @@ function GuiModule.CreateMainGui()
 
     ApplyProperties(ScreenGui, {
         Name = RandomString(math.random(10, 20)),
-        Parent = (getgenv().gethui and getgenv().gethui()) or game:GetService("CoreGui"),
+        Parent = gethui(),
         ResetOnSpawn = false,
         IgnoreGuiInset = true,
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling,

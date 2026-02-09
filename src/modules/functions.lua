@@ -426,21 +426,47 @@ function functionsModule.Init(env)
     local KnitClient = nil
     local function GetKnit()
         if KnitClient then return KnitClient end
-        local success, res = pcall(function()
-            return require(ReplicatedStorage:WaitForChild("rbxts_include"):WaitForChild("node_modules"):WaitForChild("@easy-games"):WaitForChild("knit"):WaitForChild("src"):WaitForChild("Knit"))
-        end)
-        if success then 
-            KnitClient = res 
-            return KnitClient
+        
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local knit_path = ReplicatedStorage:FindFirstChild("rbxts_include")
+        if knit_path then
+            knit_path = knit_path:FindFirstChild("node_modules")
+            if knit_path then
+                knit_path = knit_path:FindFirstChild("@easy-games")
+                if knit_path then
+                    knit_path = knit_path:FindFirstChild("knit")
+                    if knit_path then
+                        knit_path = knit_path:FindFirstChild("src")
+                        if knit_path then
+                            knit_path = knit_path:FindFirstChild("Knit")
+                            if knit_path then
+                                local success, res = pcall(require, knit_path)
+                                if success then
+                                    KnitClient = res
+                                    return KnitClient
+                                end
+                            end
+                        end
+                    end
+                end
+            end
         end
         return nil
     end
 
+    local ControllerCache = {}
     local function GetController(name)
+        if ControllerCache[name] then return ControllerCache[name] end
+        
         local knit = GetKnit()
         if not knit then return nil end
+        
         local success, res = pcall(function() return knit.GetController(name) end)
-        return success and res or nil
+        if success and res then
+            ControllerCache[name] = res
+            return res
+        end
+        return nil
     end
 
     -- 提取環境函數以便直接使用

@@ -68,6 +68,7 @@ Notify("Halol V5.0.0", "正在從雲端獲取最新組件 (強制刷新)...", 3)
 local success, err = pcall(function()
     local HOSTS = {
         "https://raw.githubusercontent.com/akiopz/-ez/main/",
+        "https://raw.githubusercontent.com/akiopz/Roblox-Scripts/main/",
         "https://raw.fastgit.org/akiopz/-ez/main/"
     }
     
@@ -90,25 +91,31 @@ local success, err = pcall(function()
 
         local lastErr
         for _, base in ipairs(HOSTS) do
-            -- 使用隨機參數強制繞過 GitHub 和執行器的快取
-            local url = base .. path .. "?nocache=" .. sessionID .. "&t=" .. os.time()
-            local ok, content = pcall(function()
-                return game:HttpGet(url)
-            end)
-            if ok and content and content ~= "" then
-                local func, parseErr = load_func(content)
-                if func then
-                    local execSuccess, result = pcall(func)
-                    if execSuccess then
-                        return result
+            -- 嘗試帶參數與不帶參數
+            local urls = {
+                base .. path .. "?nocache=" .. sessionID .. "&t=" .. os.time(),
+                base .. path
+            }
+            
+            for _, url in ipairs(urls) do
+                local ok, content = pcall(function()
+                    return game:HttpGet(url)
+                end)
+                if ok and content and content ~= "" and not content:find("404: Not Found") then
+                    local func, parseErr = load_func(content)
+                    if func then
+                        local execSuccess, result = pcall(func)
+                        if execSuccess then
+                            return result
+                        else
+                            lastErr = "執行錯誤 (" .. path .. "): " .. tostring(result)
+                        end
                     else
-                        lastErr = "執行錯誤 (" .. path .. "): " .. tostring(result)
+                        lastErr = "語法錯誤 (" .. path .. "): " .. tostring(parseErr)
                     end
                 else
-                    lastErr = "語法錯誤 (" .. path .. "): " .. tostring(parseErr)
+                    lastErr = "無法獲取檔案: " .. url
                 end
-            else
-                lastErr = "無法獲取檔案: " .. path .. " 來源: " .. base
             end
         end
         error(lastErr or ("下載未知錯誤: " .. path))
