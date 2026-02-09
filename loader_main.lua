@@ -67,8 +67,8 @@ Notify("Halol V5.0.0", "正在從雲端獲取最新組件 (強制刷新)...", 3)
 
 local success, err = pcall(function()
     local HOSTS = {
-        "https://raw.githubusercontent.com/akiopz/Roblox-Scripts/main/",
-        "https://raw.fastgit.org/akiopz/Roblox-Scripts/main/"
+        "https://raw.githubusercontent.com/akiopz/-ez/main/",
+        "https://raw.fastgit.org/akiopz/-ez/main/"
     }
     
     local function GetScript(path)
